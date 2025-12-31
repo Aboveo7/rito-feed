@@ -165,7 +165,7 @@ async function init(){
   }
   const recommend=v.items.find(x=>x.id===rec);
 
-  app.innerHTML+=`<div class="rito_title">LIVE SIGNAL</div>
+  app.innerHTML+=`<div class="rito_title">LIVE</div>
   <div class="rito_slider">
     ${live.length?live.map(x=>card(x,true)).join(""):`<div class="rito_box">No live stream right now</div>`}
   </div>`;
@@ -178,16 +178,16 @@ async function init(){
   app.innerHTML+=`<div class="rito_title">RECOMMENDED TODAY</div>
   <div class="rito_slider">${recommend?card(recommend):""}</div>`;
 
-  app.innerHTML+=`<div class="rito_title">VIDEO ARCHIVE</div>
+  app.innerHTML+=`<div class="rito_title">VIDEOS</div>
   <div class="rito_slider">${v.items.map(card).join("")}</div>`;
 
-  app.innerHTML+=`<div class="rito_title">COMMUNITY</div>
+  app.innerHTML+=`<div class="rito_title">COMMUNITY POST</div>
   <div class="rito_box">
     New uploads, shorts and live interactions are summarized automatically
     due to platform restrictions.
   </div>`;
 
-  app.innerHTML+=`<div class="rito_title">MONTHLY SUMMARY</div>
+  app.innerHTML+=`<div class="rito_title">SUMMARY</div>
   <div class="rito_box">
     Consistent gaming uploads, short-form highlights and interactive
     live streams focused on audience engagement.
