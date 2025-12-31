@@ -3,141 +3,96 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>x9-rito-feed</title>
+<title>RITO FEED</title>
 
 <style>
-html,body{
-  margin:0;
-  background:#000;
-  color:#fff;
-  font-family:system-ui,Arial;
-}
-#x9_void_kernel{
-  min-height:100vh;
-  padding:16px;
-  background:radial-gradient(circle at top,#0b0b0b,#000);
-}
-.x9_sig_label{
-  font-size:14px;
-  letter-spacing:2px;
-  color:#00ffd5;
-  margin:20px 0 10px;
-}
-.x9_flux_rail{
-  display:flex;
-  gap:14px;
-  overflow-x:auto;
-  -webkit-overflow-scrolling:touch;
-}
-.x9_flux_rail::-webkit-scrollbar{display:none}
-.x9_media_cell{
-  min-width:240px;
+/* ultra-unique names to avoid collision */
+.ritoX_void { background:#000; color:#00ffd5; font-family:Arial, sans-serif; padding:20px; }
+.ritoX_title { letter-spacing:3px; margin:20px 0 10px; }
+.ritoX_row { display:flex; gap:14px; overflow-x:auto; scroll-snap-type:x mandatory; }
+.ritoX_row::-webkit-scrollbar { display:none; }
+.ritoX_card {
+  min-width:220px;
   background:#111;
   border-radius:14px;
   overflow:hidden;
-  color:#fff;
-  text-decoration:none;
-  transition:.35s;
+  scroll-snap-align:start;
+  transition:transform .35s;
 }
-.x9_media_cell:hover{
-  transform:scale(1.05);
-  box-shadow:0 0 18px rgba(0,255,213,.45);
-}
-.x9_media_cell img{width:100%}
-.x9_media_txt{
-  font-size:12px;
+.ritoX_card:hover { transform:scale(1.05); }
+.ritoX_card img { width:100%; display:block; }
+.ritoX_card span {
+  display:block;
   padding:8px;
-  line-height:1.3;
+  font-size:13px;
+  color:#ccc;
 }
-.x9_live_core{
-  outline:2px solid #ff0033;
-  position:relative;
-}
-.x9_live_core::after{
-  content:"LIVE";
-  position:absolute;
-  top:6px;
-  left:6px;
-  background:#ff0033;
-  font-size:10px;
-  padding:3px 6px;
-  border-radius:5px;
-}
-.x9_note{
-  opacity:.45;
-  font-size:11px;
-  margin-top:20px;
-}
+.ritoX_live { color:#ff004c; font-weight:bold; }
+.ritoX_hint { font-size:12px; opacity:.6; margin-top:20px; }
 </style>
 </head>
 
-<body>
+<body class="ritoX_void">
 
-<div id="x9_void_kernel">
-  <div class="x9_sig_label">LIVE SIGNAL</div>
-  <div class="x9_flux_rail" id="x9_live_lane"></div>
+<h3 class="ritoX_title">LIVE SIGNAL</h3>
+<div id="ritoX_live"></div>
 
-  <div class="x9_sig_label">VIDEO ARCHIVE</div>
-  <div class="x9_flux_rail" id="x9_video_lane"></div>
+<h3 class="ritoX_title">SHORT BURSTS</h3>
+<div class="ritoX_row" id="ritoX_shorts"></div>
 
-  <div class="x9_note">Auto refresh every 30s • Powered by RSS</div>
-</div>
+<h3 class="ritoX_title">VIDEO ARCHIVE</h3>
+<div class="ritoX_row" id="ritoX_videos"></div>
+
+<div class="ritoX_hint">Auto refresh every 30s • Powered by RSS proxy</div>
 
 <script>
-(() => {
+const CHANNEL_ID = "UCeq1rnutfneY2AUe3Fi7gTA";
+const RSS_URL =
+  "https://api.rss2json.com/v1/api.json?rss_url=" +
+  encodeURIComponent(
+    "https://www.youtube.com/feeds/videos.xml?channel_id=" + CHANNEL_ID
+  );
 
-const FEED = "https://holy-grass-6e3a.gtasmp99.workers.dev/";
-const REFRESH = 30000;
+async function ritoX_load() {
+  try {
+    const res = await fetch(RSS_URL);
+    const data = await res.json();
+    const items = data.items || [];
 
-async function loadFeed(){
-  x9_live_lane.innerHTML = "";
-  x9_video_lane.innerHTML = "";
+    document.getElementById("ritoX_live").innerHTML = "";
+    document.getElementById("ritoX_videos").innerHTML = "";
+    document.getElementById("ritoX_shorts").innerHTML = "";
 
-  let xml;
-  try{
-    xml = await fetch(FEED,{cache:"no-store"}).then(r=>r.text());
-  }catch(e){
-    console.error("Feed fetch failed",e);
-    return;
+    items.forEach(v => {
+      const isLive = v.title.toLowerCase().includes("live");
+      const isShort = v.link.includes("/shorts/");
+
+      const card = document.createElement("a");
+      card.href = v.link;
+      card.target = "_blank";
+      card.className = "ritoX_card";
+      card.innerHTML = `
+        <img src="${v.thumbnail}">
+        <span>${v.title}</span>
+      `;
+
+      if (isLive) {
+        document.getElementById("ritoX_live").innerHTML =
+          `<a href="${v.link}" target="_blank" class="ritoX_live">🔴 LIVE NOW</a>`;
+      } else if (isShort) {
+        document.getElementById("ritoX_shorts").appendChild(card);
+      } else {
+        document.getElementById("ritoX_videos").appendChild(card);
+      }
+    });
+
+  } catch (e) {
+    console.error("RITO FEED ERROR", e);
   }
-
-  const doc = new DOMParser().parseFromString(xml,"text/xml");
-  const entries = [...doc.querySelectorAll("entry")];
-
-  entries.forEach(e=>{
-    const title = e.querySelector("title")?.textContent || "";
-    const linkEl = e.querySelector("link[rel='alternate']");
-    if(!linkEl) return;
-
-    const url = linkEl.getAttribute("href");
-    const idMatch = url.match(/v=([^&]+)/);
-    if(!idMatch) return;
-
-    const vid = idMatch[1];
-    const thumb = `https://img.youtube.com/vi/${vid}/hqdefault.jpg`;
-
-    const card = document.createElement("a");
-    card.href = url;
-    card.target = "_blank";
-    card.className = "x9_media_cell";
-    card.innerHTML = `
-      <img src="${thumb}">
-      <div class="x9_media_txt">${title}</div>
-    `;
-
-    if(title.toLowerCase().includes("live")){
-      card.classList.add("x9_live_core");
-      x9_live_lane.appendChild(card);
-    }else{
-      x9_video_lane.appendChild(card);
-    }
-  });
 }
 
-loadFeed();
-setInterval(loadFeed, REFRESH);
-
-})();
+ritoX_load();
+setInterval(ritoX_load, 30000);
 </script>
 
 </body>
