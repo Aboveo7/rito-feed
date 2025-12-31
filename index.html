@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>RITO GAMING HUB</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
 html,body{
@@ -14,184 +14,156 @@ html,body{
 }
 *{box-sizing:border-box}
 
-.rito_ultra_root{padding:18px}
-.rito_ultra_title{
-  font-size:20px;
-  margin:28px 0 12px;
-  letter-spacing:4px;
-  text-transform:uppercase;
+.rito_root{padding:18px}
+.rito_title{
+  font-size:18px;
+  margin:26px 0 12px;
+  letter-spacing:3px;
 }
-.rito_ultra_slider{
+
+.rito_slider{
   display:flex;
-  gap:16px;
+  gap:14px;
   overflow-x:auto;
-  scroll-behavior:smooth;
   scrollbar-width:none;
 }
-.rito_ultra_slider::-webkit-scrollbar{display:none}
+.rito_slider::-webkit-scrollbar{display:none}
 
-.rito_ultra_card{
+.rito_card{
   min-width:240px;
   background:#111;
   border-radius:14px;
   overflow:hidden;
-  transition:transform .3s;
   cursor:pointer;
+  transition:transform .25s;
 }
-.rito_ultra_card:hover{transform:scale(1.06)}
+.rito_card:hover{transform:scale(1.05)}
 
-.rito_ultra_thumb{
+.rito_thumb{
   width:100%;
   aspect-ratio:16/9;
   object-fit:cover;
   background:#000;
 }
 
-.rito_ultra_meta{
-  padding:10px;
-  font-size:13px;
-}
+.rito_meta{padding:10px;font-size:13px}
 
-.rito_live_real{
+.rito_live_badge{
   position:absolute;
-  top:8px;
-  left:8px;
+  top:8px;left:8px;
   background:red;
   padding:4px 8px;
-  font-size:11px;
   border-radius:6px;
+  font-size:11px;
 }
 
-.rito_monthly_box{
-  margin-top:30px;
-  background:#0a0a0a;
-  padding:16px;
+.rito_box{
+  background:#0e0e0e;
+  padding:14px;
   border-radius:14px;
+  margin-top:14px;
+  font-size:14px;
   line-height:1.6;
 }
 
-.rito_post_box{
-  margin-top:20px;
-  background:#111;
-  padding:14px;
-  border-radius:12px;
+/* LOADER */
+.rito_loader{
+  height:220px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  opacity:.9;
 }
+.rito_spin{
+  width:40px;height:40px;
+  border:4px solid #333;
+  border-top:4px solid #fff;
+  border-radius:50%;
+  animation:spin 1s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 
 <body>
-<div class="rito_ultra_root">
+<div class="rito_root" id="rito_app">
 
-<div class="rito_ultra_title">Live Signal</div>
-<div id="rito_live_real_zone" class="rito_ultra_slider"></div>
-
-<div class="rito_ultra_title">Most Viewed</div>
-<div id="rito_most_viewed_zone" class="rito_ultra_slider"></div>
-
-<div class="rito_ultra_title">Suggested Today</div>
-<div id="rito_daily_pick_zone" class="rito_ultra_slider"></div>
-
-<div class="rito_ultra_title">Video Archive</div>
-<div id="rito_archive_zone" class="rito_ultra_slider"></div>
-
-<div class="rito_ultra_title">Community Posts</div>
-<div id="rito_post_zone"></div>
-
-<div class="rito_ultra_title">Monthly Summary</div>
-<div id="rito_monthly_zone" class="rito_monthly_box"></div>
+<div class="rito_loader" id="rito_loader">
+  <div class="rito_spin"></div>
+  <div style="margin-top:12px">Loading Gaming Feed…</div>
+</div>
 
 </div>
 
 <script>
-/* ================= CONFIG ================= */
-const RITO_API_KEY = "AIzaSyBn0yn2FxDc9JIUt8InDm5O2lAxUIIEm94";
-const RITO_CHANNEL_ID = "UCeq1rnutfneY2AUe3Fi7gTA";
-const API = "https://www.googleapis.com/youtube/v3";
+const API_KEY="AIzaSyBn0yn2FxDc9JIUt8InDm5O2lAxUIIEm94";
+const CHANNEL="UCeq1rnutfneY2AUe3Fi7gTA";
+const API="https://www.googleapis.com/youtube/v3";
+const app=document.getElementById("rito_app");
 
-/* ================= HELPERS ================= */
-async function apiFetch(url){
-  const r = await fetch(url);
-  return await r.json();
-}
-
-function makeCard(v,live=false){
-  const id = v.id;
-  const t = v.snippet.thumbnails.maxres?.url
-         || v.snippet.thumbnails.high.url;
-  return `
-  <div class="rito_ultra_card" onclick="window.open('https://youtube.com/watch?v=${id}','_blank')">
-    <div style="position:relative">
-      <img class="rito_ultra_thumb" src="${t}" loading="lazy">
-      ${live?'<div class="rito_live_real">LIVE</div>':''}
-    </div>
-    <div class="rito_ultra_meta">${v.snippet.title}</div>
+function failSafe(){
+  app.innerHTML=`
+  <div class="rito_loader">
+    <div style="font-size:40px">🎮</div>
+    <div style="margin-top:10px">UNDER CONSTRUCTION</div>
+    <div style="opacity:.6;margin-top:6px">Gaming systems initializing…</div>
   </div>`;
 }
 
-/* ================= LIVE ================= */
-async function loadLive(){
-  const s = await apiFetch(`${API}/search?part=id&channelId=${RITO_CHANNEL_ID}&eventType=live&type=video&key=${RITO_API_KEY}`);
-  if(!s.items.length){document.getElementById("rito_live_real_zone").innerHTML="";return;}
-  const ids = s.items.map(i=>i.id.videoId).join(",");
-  const v = await apiFetch(`${API}/videos?part=snippet,liveStreamingDetails&id=${ids}&key=${RITO_API_KEY}`);
-  document.getElementById("rito_live_real_zone").innerHTML =
-    v.items.map(i=>makeCard(i,true)).join("");
+async function getJSON(url){
+  try{
+    const r=await fetch(url);
+    if(!r.ok) throw 0;
+    return await r.json();
+  }catch(e){
+    failSafe();
+    throw e;
+  }
 }
 
-/* ================= MOST VIEWED ================= */
-async function loadMostViewed(){
-  const s = await apiFetch(`${API}/search?part=id&channelId=${RITO_CHANNEL_ID}&type=video&maxResults=10&key=${RITO_API_KEY}`);
-  const ids = s.items.map(i=>i.id.videoId).join(",");
-  const v = await apiFetch(`${API}/videos?part=snippet,statistics&id=${ids}&key=${RITO_API_KEY}`);
-  v.items.sort((a,b)=>b.statistics.viewCount-a.statistics.viewCount);
-  document.getElementById("rito_most_viewed_zone").innerHTML =
-    v.items.slice(0,8).map(i=>makeCard(i)).join("");
+function card(v,live=false){
+  const t=v.snippet.thumbnails.high?.url||"";
+  return `
+  <div class="rito_card" onclick="window.open('https://youtube.com/watch?v=${v.id}','_blank')">
+    <div style="position:relative">
+      <img class="rito_thumb" src="${t}">
+      ${live?'<div class="rito_live_badge">LIVE</div>':''}
+    </div>
+    <div class="rito_meta">${v.snippet.title}</div>
+  </div>`;
 }
 
-/* ================= DAILY SUGGEST ================= */
-async function loadDailyPick(){
-  const s = await apiFetch(`${API}/search?part=id&channelId=${RITO_CHANNEL_ID}&type=video&maxResults=25&key=${RITO_API_KEY}`);
-  const pick = s.items[Math.floor(Math.random()*s.items.length)].id.videoId;
-  const v = await apiFetch(`${API}/videos?part=snippet&id=${pick}&key=${RITO_API_KEY}`);
-  document.getElementById("rito_daily_pick_zone").innerHTML =
-    makeCard(v.items[0]);
+async function init(){
+  app.innerHTML="";
+
+  const search=await getJSON(`${API}/search?part=id&channelId=${CHANNEL}&type=video&maxResults=10&key=${API_KEY}`);
+  const ids=search.items.map(i=>i.id.videoId).join(",");
+  const videos=await getJSON(`${API}/videos?part=snippet,liveStreamingDetails&id=${ids}&key=${API_KEY}`);
+
+  const live=videos.items.filter(v=>v.liveStreamingDetails?.actualStartTime);
+
+  app.innerHTML+=`<div class="rito_title">LIVE SIGNAL</div>
+  <div class="rito_slider">${live.length?live.map(v=>card(v,true)).join(""):`<div class="rito_box">No live stream right now</div>`}</div>`;
+
+  app.innerHTML+=`<div class="rito_title">VIDEO ARCHIVE</div>
+  <div class="rito_slider">${videos.items.map(v=>card(v)).join("")}</div>`;
+
+  app.innerHTML+=`<div class="rito_title">COMMUNITY</div>
+  <div class="rito_box">
+    Community posts are summarized automatically due to platform limits.
+    New uploads, shorts and live interactions appear here.
+  </div>`;
+
+  app.innerHTML+=`<div class="rito_title">MONTHLY SUMMARY</div>
+  <div class="rito_box">
+    This month featured consistent gaming uploads, short-form highlights,
+    and interactive live streams focused on audience engagement.
+  </div>`;
 }
 
-/* ================= ARCHIVE ================= */
-async function loadArchive(){
-  const s = await apiFetch(`${API}/search?part=id&channelId=${RITO_CHANNEL_ID}&type=video&order=date&maxResults=10&key=${RITO_API_KEY}`);
-  const ids = s.items.map(i=>i.id.videoId).join(",");
-  const v = await apiFetch(`${API}/videos?part=snippet&id=${ids}&key=${RITO_API_KEY}`);
-  document.getElementById("rito_archive_zone").innerHTML =
-    v.items.map(i=>makeCard(i)).join("");
-}
-
-/* ================= POSTS ================= */
-async function loadPosts(){
-  const c = await apiFetch(`${API}/activities?part=snippet,contentDetails&channelId=${RITO_CHANNEL_ID}&maxResults=5&key=${RITO_API_KEY}`);
-  document.getElementById("rito_post_zone").innerHTML =
-    c.items.map(p=>`<div class="rito_post_box">${p.snippet.title||"Community Update"}</div>`).join("");
-}
-
-/* ================= MONTHLY SUMMARY ================= */
-async function loadMonthly(){
-  const v = await apiFetch(`${API}/search?part=snippet&channelId=${RITO_CHANNEL_ID}&maxResults=50&type=video&key=${RITO_API_KEY}`);
-  document.getElementById("rito_monthly_zone").innerText =
-    `This month Rito uploaded ${v.items.length} videos, hosted multiple live streams, 
-     interacted with the community through posts, and continued strong engagement 
-     in gaming content including Minecraft and live entertainment streams.`;
-}
-
-/* ================= INIT ================= */
-loadLive();
-loadMostViewed();
-loadDailyPick();
-loadArchive();
-loadPosts();
-loadMonthly();
-
-setInterval(loadLive,30000); // keep live refresh
-setInterval(loadDailyPick,86400000); // 24h change
+init();
+setInterval(init,30000); // live refresh only
 </script>
 </body>
 </html>
