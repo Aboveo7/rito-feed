@@ -2,20 +2,19 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>YouTube Channel Hub</title>
+<title>YouTube Gaming Feed</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
 html,body{
   margin:0;
-  padding:0;
   background:#000;
   color:#fff;
-  font-family:Arial,Helvetica,sans-serif;
+  font-family:Segoe UI,Arial;
   overflow-x:hidden;
 }
 
-/* HIDE SCROLLBAR COMPLETELY */
+/* SCROLLBAR HIDE */
 *{
   box-sizing:border-box;
   scrollbar-width:none;
@@ -26,17 +25,15 @@ html,body{
   display:none;
 }
 
-.container{
-  padding:16px;
-}
+.app-container{padding:18px}
 
 .section-title{
-  margin:28px 0 12px;
-  font-size:16px;
+  font-size:18px;
+  margin:28px 0 14px;
   letter-spacing:2px;
 }
 
-.slider{
+.horizontal-list{
   display:flex;
   gap:16px;
   overflow-x:auto;
@@ -49,7 +46,7 @@ html,body{
   border-radius:14px;
   overflow:hidden;
   cursor:pointer;
-  transition:transform .25s;
+  transition:.25s;
 }
 .video-card:hover{transform:scale(1.05)}
 
@@ -57,9 +54,10 @@ html,body{
   width:100%;
   aspect-ratio:16/9;
   object-fit:cover;
+  background:#000;
 }
 
-.video-info{
+.video-title{
   padding:10px;
   font-size:13px;
 }
@@ -68,21 +66,21 @@ html,body{
   position:absolute;
   top:8px;
   left:8px;
-  background:red;
-  color:#fff;
+  background:#ff0000;
   padding:4px 8px;
-  font-size:11px;
   border-radius:6px;
+  font-size:11px;
 }
 
-.summary-box{
-  background:#111;
+.info-box{
+  background:#0f0f0f;
   padding:14px;
   border-radius:14px;
   line-height:1.6;
-  font-size:14px;
+  opacity:.95;
 }
 
+/* LOADER */
 .loader{
   height:260px;
   display:flex;
@@ -90,10 +88,8 @@ html,body{
   justify-content:center;
   flex-direction:column;
 }
-
 .spinner{
-  width:40px;
-  height:40px;
+  width:42px;height:42px;
   border:4px solid #333;
   border-top:4px solid #fff;
   border-radius:50%;
@@ -104,160 +100,142 @@ html,body{
 </head>
 
 <body>
-
-<div class="container" id="app">
+<div class="app-container" id="app">
   <div class="loader">
     <div class="spinner"></div>
-    <div style="margin-top:10px">Loading channel data…</div>
+    <div style="margin-top:12px">Loading channel data…</div>
   </div>
 </div>
 
 <script>
-const API_KEY = "AIzaSyBn0yn2FxDc9JIUt8InDm5O2lAxUIIEm94";
-const CHANNEL_ID = "UCeq1rnutfneY2AUe3Fi7gTA";
-const API_URL = "https://www.googleapis.com/youtube/v3";
-const app = document.getElementById("app");
+const API_KEY="AIzaSyBn0yn2FxDc9JIUt8InDm5O2lAxUIIEm94";
+const CHANNEL_ID="UCeq1rnutfneY2AUe3Fi7gTA";
+const API="https://www.googleapis.com/youtube/v3";
+const app=document.getElementById("app");
 
-/* SAFE FETCH */
-async function fetchJSON(url){
-  const res = await fetch(url);
-  if(!res.ok) throw new Error("API");
-  return res.json();
-}
-
-/* CARD */
-function createCard(video,isLive=false){
-  return `
-  <div class="video-card" onclick="window.open('https://www.youtube.com/watch?v=${video.id}','_blank')">
-    <div style="position:relative">
-      <img class="thumbnail" src="${video.snippet.thumbnails.high.url}">
-      ${isLive ? `<div class="live-badge">LIVE</div>` : ``}
-    </div>
-    <div class="video-info">${video.snippet.title}</div>
+function showError(){
+  app.innerHTML=`
+  <div class="loader">
+    <div style="font-size:38px">🎮</div>
+    <div>UNDER CONSTRUCTION</div>
+    <div style="opacity:.6">API unavailable</div>
   </div>`;
 }
 
-/* DAILY RECOMMENDED */
-function getDailyRecommended(list){
-  const key="daily_video_id";
-  const timeKey="daily_video_time";
+async function fetchData(url){
+  const res=await fetch(url);
+  if(!res.ok) throw 0;
+  return res.json();
+}
+
+function openVideo(id){
+  window.open("https://youtube.com/watch?v="+id,"_blank");
+}
+
+function videoCard(video,isLive=false){
+  return `
+  <div class="video-card" onclick="openVideo('${video.id}')">
+    <div style="position:relative">
+      <img class="thumbnail" src="${video.snippet.thumbnails.high.url}">
+      ${isLive?'<div class="live-badge">LIVE</div>':''}
+    </div>
+    <div class="video-title">${video.snippet.title}</div>
+  </div>`;
+}
+
+/* RECOMMENDED – 24 HOURS FIXED */
+function getDailyRecommendation(items){
+  const KEY="daily_recommend_id";
+  const TIME="daily_recommend_time";
+  const DAY=86400000;
   const now=Date.now();
-  const day=86400000;
 
-  const saved=localStorage.getItem(key);
-  const savedTime=localStorage.getItem(timeKey);
+  const savedId=localStorage.getItem(KEY);
+  const savedTime=localStorage.getItem(TIME);
 
-  if(saved && savedTime && now-savedTime<day){
-    const found=list.find(v=>v.id===saved);
+  if(savedId && savedTime && (now - savedTime < DAY)){
+    const found=items.find(v=>v.id===savedId);
     if(found) return found;
   }
 
-  const pick=list[Math.floor(Math.random()*list.length)];
-  localStorage.setItem(key,pick.id);
-  localStorage.setItem(timeKey,now);
+  const pick=items[Math.floor(Math.random()*items.length)];
+  localStorage.setItem(KEY,pick.id);
+  localStorage.setItem(TIME,now);
   return pick;
 }
 
-/* SUMMARY */
-function generateSummary(videos,lives){
+/* MONTHLY SUMMARY */
+function buildMonthlySummary(videos,lives){
   const now=Date.now();
-  const month=30*86400000;
-  let uploads=0,views=0;
+  const MONTH=30*24*60*60*1000;
+
+  let uploads=0;
+  let views=0;
 
   videos.forEach(v=>{
-    if(now-new Date(v.snippet.publishedAt)<month){
+    const published=new Date(v.snippet.publishedAt).getTime();
+    if(now-published<MONTH){
       uploads++;
       views+=Number(v.statistics.viewCount||0);
     }
   });
 
-  return `During the last month, the channel uploaded ${uploads} videos and conducted ${lives} live streams, gaining approximately ${views.toLocaleString()} views. Content delivery remained consistent, maintaining steady engagement within the gaming audience.`;
+  const frequency=uploads
+    ? `roughly ${Math.round(30/uploads)} days per upload`
+    : "low upload frequency";
+
+  return `During the last 30 days, the channel published ${uploads} videos and hosted ${lives} live streams, generating approximately ${views.toLocaleString()} views. Content output remained consistent with a ${frequency}, maintaining steady engagement within the gaming audience.`;
 }
 
-/* INIT */
 async function init(){
   try{
     app.innerHTML="";
 
-    /* GET RECENT CONTENT */
-    const search = await fetchJSON(
-      `${API_URL}/search?part=snippet&channelId=${CHANNEL_ID}&type=video&maxResults=25&key=${API_KEY}`
+    const search=await fetchData(
+      `${API}/search?part=id&channelId=${CHANNEL_ID}&type=video&maxResults=15&key=${API_KEY}`
     );
 
-    const ids = search.items.map(i=>i.id.videoId).join(",");
+    const ids=search.items.map(i=>i.id.videoId).join(",");
 
-    const data = await fetchJSON(
-      `${API_URL}/videos?part=snippet,statistics,contentDetails,liveStreamingDetails&id=${ids}&key=${API_KEY}`
+    const videosData=await fetchData(
+      `${API}/videos?part=snippet,statistics,liveStreamingDetails&id=${ids}&key=${API_KEY}`
     );
 
-    const items = data.items;
+    const items=videosData.items;
 
-    /* CLASSIFY */
-    const liveNow = items.filter(v =>
-      v.liveStreamingDetails &&
-      v.liveStreamingDetails.actualStartTime &&
-      !v.liveStreamingDetails.actualEndTime
-    );
+    const liveVideos=items.filter(v=>v.liveStreamingDetails?.actualStartTime);
+    const mostViewed=[...items].sort((a,b)=>b.statistics.viewCount-a.statistics.viewCount);
+    const recommended=getDailyRecommendation(items);
+    const summary=buildMonthlySummary(items,liveVideos.length);
 
-    const livePast = items.filter(v =>
-      v.liveStreamingDetails &&
-      v.liveStreamingDetails.actualEndTime
-    );
-
-    const shorts = items.filter(v =>
-      v.contentDetails.duration.startsWith("PT") &&
-      v.contentDetails.duration.match(/PT\d+S|PT\d+M/)
-    );
-
-    const videos = items.filter(v =>
-      !shorts.includes(v) &&
-      !v.liveStreamingDetails
-    );
-
-    const mostViewed = [...videos].sort(
-      (a,b)=>b.statistics.viewCount-a.statistics.viewCount
-    )[0];
-
-    const recommended = getDailyRecommended(items);
-    const summary = generateSummary(videos,liveNow.length+livePast.length);
-
-    /* RENDER */
-    app.innerHTML = `
-      <div class="section-title">LIVE</div>
-      <div class="slider">
-        ${(liveNow.length?liveNow:livePast).map(v=>createCard(v,true)).join("")}
+    app.innerHTML+=`
+      <div class="section-title">Live</div>
+      <div class="horizontal-list">
+        ${liveVideos.length
+          ? liveVideos.map(v=>videoCard(v,true)).join("")
+          : `<div class="info-box">No live stream right now</div>`}
       </div>
 
-      <div class="section-title">VIDEOS</div>
-      <div class="slider">
-        ${videos.map(v=>createCard(v)).join("")}
+      <div class="section-title">Most Viewed</div>
+      <div class="horizontal-list">
+        ${mostViewed.slice(0,6).map(videoCard).join("")}
       </div>
 
-      <div class="section-title">RECOMMENDED TODAY</div>
-      <div class="slider">
-        ${recommended?createCard(recommended):""}
+      <div class="section-title">Recommended Today</div>
+      <div class="horizontal-list">
+        ${recommended?videoCard(recommended):""}
       </div>
 
-      <div class="section-title">MOST VIEWED</div>
-      <div class="slider">
-        ${mostViewed?createCard(mostViewed):""}
+      <div class="section-title">Videos</div>
+      <div class="horizontal-list">
+        ${items.map(videoCard).join("")}
       </div>
 
-      <div class="section-title">SHORTS</div>
-      <div class="slider">
-        ${shorts.map(v=>createCard(v)).join("")}
-      </div>
-
-      <div class="section-title">SUMMARY</div>
-      <div class="summary-box">${summary}</div>
+      <div class="section-title">Monthly Summary</div>
+      <div class="info-box">${summary}</div>
     `;
-  }
-  catch(e){
-    app.innerHTML = `
-      <div class="loader">
-        <div class="spinner"></div>
-        <div style="margin-top:10px">API key restriction or quota issue</div>
-      </div>`;
+  }catch{
+    showError();
   }
 }
 
