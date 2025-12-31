@@ -2,130 +2,262 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>RITO GAMING HUB</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>YouTube Channel Hub</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
 <style>
-html,body{margin:0;background:#000;color:#fff;font-family:Arial;overflow-x:hidden}
-*{scrollbar-width:none}*::-webkit-scrollbar{display:none}
-.wrap{padding:16px}
-h2{margin:28px 0 12px;font-size:16px;letter-spacing:3px}
-.slider{display:flex;gap:16px;overflow-x:auto;scroll-behavior:smooth}
-.card{min-width:240px;background:#111;border-radius:14px;overflow:hidden;cursor:pointer}
-.thumb{width:100%;aspect-ratio:16/9;object-fit:cover}
-.meta{padding:10px;font-size:13px}
-.live{position:absolute;top:8px;left:8px;background:red;padding:4px 8px;font-size:11px;border-radius:6px}
-.box{background:#111;padding:14px;border-radius:14px;line-height:1.6}
-.loader{height:260px;display:flex;align-items:center;justify-content:center;flex-direction:column}
-.spin{width:40px;height:40px;border:4px solid #333;border-top:4px solid #fff;border-radius:50%;animation:spin 1s linear infinite}
+html,body{
+  margin:0;
+  padding:0;
+  background:#000;
+  color:#fff;
+  font-family:Arial,Helvetica,sans-serif;
+  overflow-x:hidden;
+}
+
+/* HIDE SCROLLBAR COMPLETELY */
+*{
+  box-sizing:border-box;
+  scrollbar-width:none;
+}
+*::-webkit-scrollbar{
+  width:0;
+  height:0;
+  display:none;
+}
+
+.container{
+  padding:16px;
+}
+
+.section-title{
+  margin:28px 0 12px;
+  font-size:16px;
+  letter-spacing:2px;
+}
+
+.slider{
+  display:flex;
+  gap:16px;
+  overflow-x:auto;
+  scroll-behavior:smooth;
+}
+
+.video-card{
+  min-width:240px;
+  background:#111;
+  border-radius:14px;
+  overflow:hidden;
+  cursor:pointer;
+  transition:transform .25s;
+}
+.video-card:hover{transform:scale(1.05)}
+
+.thumbnail{
+  width:100%;
+  aspect-ratio:16/9;
+  object-fit:cover;
+}
+
+.video-info{
+  padding:10px;
+  font-size:13px;
+}
+
+.live-badge{
+  position:absolute;
+  top:8px;
+  left:8px;
+  background:red;
+  color:#fff;
+  padding:4px 8px;
+  font-size:11px;
+  border-radius:6px;
+}
+
+.summary-box{
+  background:#111;
+  padding:14px;
+  border-radius:14px;
+  line-height:1.6;
+  font-size:14px;
+}
+
+.loader{
+  height:260px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+}
+
+.spinner{
+  width:40px;
+  height:40px;
+  border:4px solid #333;
+  border-top:4px solid #fff;
+  border-radius:50%;
+  animation:spin 1s linear infinite;
+}
 @keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 
 <body>
-<div class="wrap" id="app">
+
+<div class="container" id="app">
   <div class="loader">
-    <div class="spin"></div>
-    <div style="margin-top:10px">Loading gaming data…</div>
+    <div class="spinner"></div>
+    <div style="margin-top:10px">Loading channel data…</div>
   </div>
 </div>
 
 <script>
-const API_KEY="AIzaSyBn0yn2FxDc9JIUt8InDm5O2lAxUIIEm94";
-const CHANNEL="UCeq1rnutfneY2AUe3Fi7gTA";
-const API="https://www.googleapis.com/youtube/v3";
-const app=document.getElementById("app");
+const API_KEY = "AIzaSyBn0yn2FxDc9JIUt8InDm5O2lAxUIIEm94";
+const CHANNEL_ID = "UCeq1rnutfneY2AUe3Fi7gTA";
+const API_URL = "https://www.googleapis.com/youtube/v3";
+const app = document.getElementById("app");
 
-async function get(url){
-  const r=await fetch(url);
-  if(!r.ok) throw "API error";
-  return r.json();
+/* SAFE FETCH */
+async function fetchJSON(url){
+  const res = await fetch(url);
+  if(!res.ok) throw new Error("API");
+  return res.json();
 }
 
-function card(v,live=false){
+/* CARD */
+function createCard(video,isLive=false){
   return `
-  <div class="card" onclick="window.open('https://youtube.com/watch?v=${v.id}','_blank')">
+  <div class="video-card" onclick="window.open('https://www.youtube.com/watch?v=${video.id}','_blank')">
     <div style="position:relative">
-      <img class="thumb" src="${v.snippet.thumbnails.high.url}">
-      ${live?'<div class="live">LIVE</div>':''}
+      <img class="thumbnail" src="${video.snippet.thumbnails.high.url}">
+      ${isLive ? `<div class="live-badge">LIVE</div>` : ``}
     </div>
-    <div class="meta">${v.snippet.title}</div>
+    <div class="video-info">${video.snippet.title}</div>
   </div>`;
 }
 
 /* DAILY RECOMMENDED */
-function dailyPick(list){
-  const k="rito_rec",t="rito_time",day=86400000,now=Date.now();
-  const s=localStorage.getItem(k),st=localStorage.getItem(t);
-  if(s&&st&&now-st<day){
-    const f=list.find(x=>x.id===s);
-    if(f) return f;
+function getDailyRecommended(list){
+  const key="daily_video_id";
+  const timeKey="daily_video_time";
+  const now=Date.now();
+  const day=86400000;
+
+  const saved=localStorage.getItem(key);
+  const savedTime=localStorage.getItem(timeKey);
+
+  if(saved && savedTime && now-savedTime<day){
+    const found=list.find(v=>v.id===saved);
+    if(found) return found;
   }
-  const p=list[Math.floor(Math.random()*list.length)];
-  localStorage.setItem(k,p.id);
-  localStorage.setItem(t,now);
-  return p;
+
+  const pick=list[Math.floor(Math.random()*list.length)];
+  localStorage.setItem(key,pick.id);
+  localStorage.setItem(timeKey,now);
+  return pick;
 }
 
 /* SUMMARY */
-function summary(videos,lives){
-  const m=30*86400000,now=Date.now();
-  let up=0,views=0;
+function generateSummary(videos,lives){
+  const now=Date.now();
+  const month=30*86400000;
+  let uploads=0,views=0;
+
   videos.forEach(v=>{
-    if(now-new Date(v.snippet.publishedAt)<m){
-      up++;
+    if(now-new Date(v.snippet.publishedAt)<month){
+      uploads++;
       views+=Number(v.statistics.viewCount||0);
     }
   });
-  return `Over the past month, the channel maintained consistent gaming activity with ${up} uploads and ${lives} live sessions, generating roughly ${views.toLocaleString()} views. Engagement remained stable, reflecting steady audience retention and regular content output.`;
+
+  return `During the last month, the channel uploaded ${uploads} videos and conducted ${lives} live streams, gaining approximately ${views.toLocaleString()} views. Content delivery remained consistent, maintaining steady engagement within the gaming audience.`;
 }
 
+/* INIT */
 async function init(){
   try{
     app.innerHTML="";
 
-    /* LIVE */
-    const liveS=await get(`${API}/search?part=snippet&channelId=${CHANNEL}&eventType=live&type=video&key=${API_KEY}`);
-    const liveIds=liveS.items.map(x=>x.id.videoId);
-    let liveV=[];
-    if(liveIds.length){
-      const d=await get(`${API}/videos?part=snippet,statistics,liveStreamingDetails&id=${liveIds}&key=${API_KEY}`);
-      liveV=d.items.filter(v=>v.liveStreamingDetails && !v.liveStreamingDetails.actualEndTime);
-    }
+    /* GET RECENT CONTENT */
+    const search = await fetchJSON(
+      `${API_URL}/search?part=snippet&channelId=${CHANNEL_ID}&type=video&maxResults=25&key=${API_KEY}`
+    );
 
-    /* PREVIOUS LIVE */
-    if(!liveV.length){
-      const prev=await get(`${API}/search?part=snippet&channelId=${CHANNEL}&eventType=completed&type=video&maxResults=6&key=${API_KEY}`);
-      const ids=prev.items.map(x=>x.id.videoId).join(",");
-      const d=await get(`${API}/videos?part=snippet,statistics&id=${ids}&key=${API_KEY}`);
-      liveV=d.items;
-    }
+    const ids = search.items.map(i=>i.id.videoId).join(",");
 
-    /* VIDEOS (NO SHORTS) */
-    const vidS=await get(`${API}/search?part=snippet&channelId=${CHANNEL}&type=video&videoDuration=medium&maxResults=15&key=${API_KEY}`);
-    const vidIds=vidS.items.map(x=>x.id.videoId).join(",");
-    const vids=(await get(`${API}/videos?part=snippet,statistics&id=${vidIds}&key=${API_KEY}`)).items;
+    const data = await fetchJSON(
+      `${API_URL}/videos?part=snippet,statistics,contentDetails,liveStreamingDetails&id=${ids}&key=${API_KEY}`
+    );
 
-    /* SHORTS */
-    const shS=await get(`${API}/search?part=snippet&channelId=${CHANNEL}&type=video&videoDuration=short&maxResults=10&key=${API_KEY}`);
-    const shIds=shS.items.map(x=>x.id.videoId).join(",");
-    const shorts=(await get(`${API}/videos?part=snippet,statistics&id=${shIds}&key=${API_KEY}`)).items;
+    const items = data.items;
 
-    /* MOST VIEWED */
-    const most=[...vids].sort((a,b)=>b.statistics.viewCount-a.statistics.viewCount)[0];
+    /* CLASSIFY */
+    const liveNow = items.filter(v =>
+      v.liveStreamingDetails &&
+      v.liveStreamingDetails.actualStartTime &&
+      !v.liveStreamingDetails.actualEndTime
+    );
 
-    /* RECOMMENDED */
-    const recommended=dailyPick([...vids,...shorts,...liveV]);
+    const livePast = items.filter(v =>
+      v.liveStreamingDetails &&
+      v.liveStreamingDetails.actualEndTime
+    );
 
-    app.innerHTML+=`
-      <h2>LIVE</h2><div class="slider">${liveV.map(v=>card(v,true)).join("")}</div>
-      <h2>VIDEOS</h2><div class="slider">${vids.map(card).join("")}</div>
-      <h2>RECOMMENDED TODAY</h2><div class="slider">${recommended?card(recommended):""}</div>
-      <h2>MOST VIEWED</h2><div class="slider">${most?card(most):""}</div>
-      <h2>SHORTS</h2><div class="slider">${shorts.map(card).join("")}</div>
-      <h2>SUMMARY</h2><div class="box">${summary(vids,liveV.length)}</div>
+    const shorts = items.filter(v =>
+      v.contentDetails.duration.startsWith("PT") &&
+      v.contentDetails.duration.match(/PT\d+S|PT\d+M/)
+    );
+
+    const videos = items.filter(v =>
+      !shorts.includes(v) &&
+      !v.liveStreamingDetails
+    );
+
+    const mostViewed = [...videos].sort(
+      (a,b)=>b.statistics.viewCount-a.statistics.viewCount
+    )[0];
+
+    const recommended = getDailyRecommended(items);
+    const summary = generateSummary(videos,liveNow.length+livePast.length);
+
+    /* RENDER */
+    app.innerHTML = `
+      <div class="section-title">LIVE</div>
+      <div class="slider">
+        ${(liveNow.length?liveNow:livePast).map(v=>createCard(v,true)).join("")}
+      </div>
+
+      <div class="section-title">VIDEOS</div>
+      <div class="slider">
+        ${videos.map(v=>createCard(v)).join("")}
+      </div>
+
+      <div class="section-title">RECOMMENDED TODAY</div>
+      <div class="slider">
+        ${recommended?createCard(recommended):""}
+      </div>
+
+      <div class="section-title">MOST VIEWED</div>
+      <div class="slider">
+        ${mostViewed?createCard(mostViewed):""}
+      </div>
+
+      <div class="section-title">SHORTS</div>
+      <div class="slider">
+        ${shorts.map(v=>createCard(v)).join("")}
+      </div>
+
+      <div class="section-title">SUMMARY</div>
+      <div class="summary-box">${summary}</div>
     `;
-  }catch(e){
-    app.innerHTML=`<div class="loader"><div class="spin"></div><div>API limit or network issue</div></div>`;
+  }
+  catch(e){
+    app.innerHTML = `
+      <div class="loader">
+        <div class="spinner"></div>
+        <div style="margin-top:10px">API key restriction or quota issue</div>
+      </div>`;
   }
 }
 
