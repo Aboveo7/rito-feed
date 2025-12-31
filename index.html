@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>x9-rito-feed</title>
+
+<style>
+/* ====== HARD ISOLATION ====== */
+html,body{
+  margin:0;
+  padding:0;
+  background:#000;
+  color:#fff;
+  font-family:system-ui,Segoe UI,Arial;
+}
+
+/* ====== ROOT ====== */
+#x9_void_kernel{
+  min-height:100vh;
+  padding:16px;
+  background:
+    radial-gradient(circle at top,#0b0b0b,#000);
+}
+
+/* ====== TITLES ====== */
+.x9_sig_label{
+  font-size:14px;
+  letter-spacing:2px;
+  color:#00ffd5;
+  margin:20px 0 10px;
+}
+
+/* ====== SCROLL RAIL ====== */
+.x9_flux_rail{
+  display:flex;
+  gap:14px;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  scroll-snap-type:x mandatory;
+}
+.x9_flux_rail::-webkit-scrollbar{display:none}
+
+/* ====== CARD ====== */
+.x9_media_cell{
+  min-width:240px;
+  background:#111;
+  border-radius:14px;
+  overflow:hidden;
+  text-decoration:none;
+  color:#fff;
+  scroll-snap-align:start;
+  transition:transform .35s ease, box-shadow .35s ease;
+}
+.x9_media_cell:hover{
+  transform:scale(1.05);
+  box-shadow:0 0 18px rgba(0,255,213,.45);
+}
+.x9_media_cell img{
+  width:100%;
+  display:block;
+}
+.x9_media_txt{
+  font-size:12px;
+  padding:8px;
+  line-height:1.35;
+}
+
+/* ====== LIVE FX ====== */
+.x9_live_core{
+  outline:2px solid #ff0033;
+  position:relative;
+  animation:x9_live_pulse 1.2s infinite alternate;
+}
+@keyframes x9_live_pulse{
+  from{box-shadow:0 0 6px #ff0033}
+  to{box-shadow:0 0 22px #ff0033}
+}
+.x9_live_core::after{
+  content:"LIVE";
+  position:absolute;
+  top:6px;
+  left:6px;
+  background:#ff0033;
+  font-size:10px;
+  padding:3px 6px;
+  border-radius:5px;
+}
+
+/* ====== FOOT NOTE ====== */
+.x9_note{
+  opacity:.45;
+  font-size:11px;
+  margin-top:25px;
+}
+</style>
+</head>
+
+<body>
+
+<div id="x9_void_kernel">
+
+  <div class="x9_sig_label">LIVE SIGNAL</div>
+  <div class="x9_flux_rail" id="x9_live_lane"></div>
+
+  <div class="x9_sig_label">VIDEO ARCHIVE</div>
+  <div class="x9_flux_rail" id="x9_video_lane"></div>
+
+  <div class="x9_note">
+    Auto refresh every 30s • Powered by RSS
+  </div>
+
+</div>
+
+<script>
+/* ====== ISOLATED CORE ====== */
+(() => {
+
+const X9_FEED = "https://holy-grass-6e3a.gtasmp99.workers.dev/";
+const X9_REFRESH = 30000;
+
+async function x9_loadFeed(){
+
+  x9_live_lane.innerHTML = "";
+  x9_video_lane.innerHTML = "";
+
+  let xmlText;
+  try{
+    xmlText = await fetch(X9_FEED,{cache:"no-store"}).then(r=>r.text());
+  }catch(e){
+    return;
+  }
+
+  const doc = new DOMParser().parseFromString(xmlText,"text/xml");
+  const entries = [...doc.querySelectorAll("entry")];
+
+  entries.forEach(entry=>{
+    const title = entry.querySelector("title")?.textContent || "";
+    const vid = entry.querySelector("yt\\:videoId")?.textContent;
+    if(!vid) return;
+
+    const link = "https://www.youtube.com/watch?v="+vid;
+    const thumb = "https://img.youtube.com/vi/"+vid+"/hqdefault.jpg";
+
+    const card = document.createElement("a");
+    card.href = link;
+    card.target = "_blank";
+    card.className = "x9_media_cell";
+    card.innerHTML = `
+      <img src="${thumb}" loading="lazy">
+      <div class="x9_media_txt">${title}</div>
+    `;
+
+    const t = title.toLowerCase();
+
+    // 🔴 LIVE detection (RSS-based)
+    if(t.includes("live")){
+      card.classList.add("x9_live_core");
+      x9_live_lane.appendChild(card);
+    }else{
+      x9_video_lane.appendChild(card);
+    }
+  });
+}
+
+// initial
+x9_loadFeed();
+
+// auto refresh
+setInterval(x9_loadFeed, X9_REFRESH);
+
+})();
+</script>
+
+</body>
+</html>
