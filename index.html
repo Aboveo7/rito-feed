@@ -2,171 +2,118 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<title>RITO GAMING FEED</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RITO FEED CORE</title>
 
 <style>
-:root { --txt:#fff; --bg:#000; --card:#111; }
-
-body {
-  margin:0; background:var(--bg); color:var(--txt);
-  font-family:system-ui, Arial, sans-serif;
+body{
+  margin:0;
+  background:#000;
+  color:#fff;
+  font-family:Arial,Helvetica,sans-serif;
+  overflow:hidden;
 }
-
-.ritoZ_root { padding:20px; }
-.ritoZ_head { margin:25px 0 12px; letter-spacing:2px; }
-
-.ritoZ_row {
+.rito_xcore_wrap{padding:16px}
+.rito_xcore_title{
+  font-size:20px;
+  letter-spacing:3px;
+  margin:24px 0 12px;
+}
+.rito_xcore_slider{
   display:flex;
   gap:14px;
   overflow-x:auto;
   scroll-behavior:smooth;
-  -ms-overflow-style:none;
   scrollbar-width:none;
 }
-.ritoZ_row::-webkit-scrollbar { display:none; }
-
-.ritoZ_card {
+.rito_xcore_slider::-webkit-scrollbar{display:none}
+.rito_xcore_card{
   min-width:220px;
-  background:var(--card);
-  border-radius:14px;
-  overflow:hidden;
-  transition:transform .35s;
-}
-.ritoZ_card:hover { transform:scale(1.06); }
-
-.ritoZ_card img { width:100%; display:block; }
-.ritoZ_card span {
-  display:block; padding:8px;
-  font-size:13px; opacity:.9;
-}
-
-.ritoZ_liveBox {
-  padding:12px;
-  border-left:4px solid red;
-  margin-bottom:20px;
-  display:none;
-}
-
-.ritoZ_liveDot { color:red; font-weight:bold; }
-
-.ritoZ_post {
-  background:#0b0b0b;
-  padding:12px;
+  background:#111;
   border-radius:12px;
-  margin-bottom:10px;
-  font-size:14px;
-  opacity:.9;
+  overflow:hidden;
+  cursor:pointer;
+  transition:transform .25s;
 }
-
-.ritoZ_summary {
-  font-size:14px;
-  line-height:1.6;
-  opacity:.85;
-  background:#0a0a0a;
-  padding:14px;
-  border-radius:14px;
+.rito_xcore_card:hover{transform:scale(1.05)}
+.rito_xcore_thumb{
+  width:100%;
+  aspect-ratio:16/9;
+  object-fit:cover;
 }
+.rito_live_badge{
+  position:absolute;
+  top:8px;left:8px;
+  background:red;
+  padding:4px 8px;
+  font-size:12px;
+  border-radius:6px;
+}
+.rito_xcore_info{padding:8px;font-size:13px}
 </style>
 </head>
 
 <body>
-<div class="ritoZ_root">
+<div class="rito_xcore_wrap">
 
-<div id="ritoZ_live" class="ritoZ_liveBox"></div>
+<div class="rito_xcore_title">LIVE SIGNAL</div>
+<div id="rito_live_zone" class="rito_xcore_slider"></div>
 
-<h3 class="ritoZ_head">MOST VIEWED</h3>
-<div class="ritoZ_row" id="ritoZ_popular"></div>
+<div class="rito_xcore_title">SHORT BURSTS</div>
+<div id="rito_short_zone" class="rito_xcore_slider"></div>
 
-<h3 class="ritoZ_head">SUGGESTED TODAY</h3>
-<div class="ritoZ_row" id="ritoZ_suggest"></div>
-
-<h3 class="ritoZ_head">VIDEO ARCHIVE</h3>
-<div class="ritoZ_row" id="ritoZ_videos"></div>
-
-<h3 class="ritoZ_head">POSTS</h3>
-<div id="ritoZ_posts"></div>
-
-<h3 class="ritoZ_head">MONTHLY SUMMARY</h3>
-<div id="ritoZ_summary" class="ritoZ_summary"></div>
+<div class="rito_xcore_title">VIDEO ARCHIVE</div>
+<div id="rito_video_zone" class="rito_xcore_slider"></div>
 
 </div>
 
 <script>
-const CHANNEL_ID = "UCeq1rnutfneY2AUe3Fi7gTA";
-const FEED =
- "https://api.allorigins.win/raw?url=" +
- encodeURIComponent(
-   "https://www.youtube.com/feeds/videos.xml?channel_id=" + CHANNEL_ID
- );
+const RITO_API_KEY = "AIzaSyBn0yn2FxDc9JIUt8InDm5O2lAxUIIEm94";
+const RITO_CHANNEL_ID = "UCeq1rnutfneY2AUe3Fi7gTA";
+const RITO_BASE = "https://www.googleapis.com/youtube/v3";
 
-let cache = [];
-
-function card(v){
-  const a = document.createElement("a");
-  a.href = v.link; a.target="_blank";
-  a.className="ritoZ_card";
-  a.innerHTML = `<img src="${v.thumbnail}"><span>${v.title}</span>`;
-  return a;
+async function ritoFetch(url){
+  const res = await fetch(url);
+  return await res.json();
 }
 
-async function loadFeed(){
-  const res = await fetch(FEED);
-  const xml = await res.text();
-  const doc = new DOMParser().parseFromString(xml,"text/xml");
-  const entries = [...doc.querySelectorAll("entry")];
-
-  cache = entries.map(e=>({
-    title:e.querySelector("title")?.textContent,
-    link:e.querySelector("link")?.getAttribute("href"),
-    published:new Date(e.querySelector("published")?.textContent),
-    thumbnail:e.querySelector("media\\:thumbnail")?.getAttribute("url"),
-    live:e.querySelector("yt\\:liveBroadcastContent")?.textContent==="live"
-  }));
-
-  render();
+function ritoCard(v,isLive=false){
+  const vid=v.id.videoId||v.id;
+  const thumb=v.snippet.thumbnails.medium.url;
+  return `
+  <div class="rito_xcore_card" onclick="window.open('https://youtube.com/watch?v=${vid}','_blank')">
+    <div style="position:relative">
+      <img class="rito_xcore_thumb" src="${thumb}">
+      ${isLive?'<div class="rito_live_badge">LIVE</div>':''}
+    </div>
+    <div class="rito_xcore_info">${v.snippet.title}</div>
+  </div>`;
 }
 
-function render(){
-  const now = Date.now();
-  const vids = document.getElementById("ritoZ_videos");
-  const pop = document.getElementById("ritoZ_popular");
-  const sug = document.getElementById("ritoZ_suggest");
-
-  vids.innerHTML = pop.innerHTML = sug.innerHTML = "";
-
-  // ACTUAL LIVE ONLY
-  const liveNow = cache.find(v=>v.live);
-  if(liveNow){
-    const box=document.getElementById("ritoZ_live");
-    box.style.display="block";
-    box.innerHTML=`<span class="ritoZ_liveDot">🔴 LIVE NOW</span><br>${liveNow.title}`;
-  }
-
-  cache.forEach(v=>vids.appendChild(card(v)));
-
-  cache.slice(0,5).forEach(v=>pop.appendChild(card(v)));
-
-  // DAILY RANDOM (24h stable)
-  const seed=Math.floor(Date.now()/86400000);
-  const pick=cache[seed%cache.length];
-  if(pick) sug.appendChild(card(pick));
-
-  // POSTS (fallback simulated)
-  document.getElementById("ritoZ_posts").innerHTML = `
-    <div class="ritoZ_post">New uploads, shorts and live activity updates appear here.</div>
-    <div class="ritoZ_post">Community interactions summarized automatically.</div>
-  `;
-
-  // MONTHLY SUMMARY
-  const month = new Date().toLocaleString("default",{month:"long"});
-  document.getElementById("ritoZ_summary").textContent =
-   `${month} overview: New videos, short-form content and live streams were published consistently.
-    Engagement focused on recent uploads with experimental formats and live interactions.`;
+async function loadLive(){
+  const j=await ritoFetch(`${RITO_BASE}/search?part=snippet&channelId=${RITO_CHANNEL_ID}&eventType=live&type=video&key=${RITO_API_KEY}`);
+  document.getElementById("rito_live_zone").innerHTML=
+    j.items.map(v=>ritoCard(v,true)).join("");
 }
 
-loadFeed();
-setInterval(loadFeed,30000); // live refresh stays
+async function loadVideos(){
+  const j=await ritoFetch(`${RITO_BASE}/search?part=snippet&channelId=${RITO_CHANNEL_ID}&type=video&maxResults=10&order=date&key=${RITO_API_KEY}`);
+  document.getElementById("rito_video_zone").innerHTML=
+    j.items.map(v=>ritoCard(v)).join("");
+}
+
+async function loadShorts(){
+  const j=await ritoFetch(`${RITO_BASE}/search?part=snippet&channelId=${RITO_CHANNEL_ID}&type=video&maxResults=10&key=${RITO_API_KEY}`);
+  document.getElementById("rito_short_zone").innerHTML=
+    j.items.filter(v=>v.snippet.title.toLowerCase().includes("#short"))
+      .map(v=>ritoCard(v)).join("");
+}
+
+loadLive();
+loadVideos();
+loadShorts();
+setInterval(loadLive,30000); // 30s live refresh
 </script>
+
 </body>
 </html>
