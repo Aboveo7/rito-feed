@@ -6,96 +6,95 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
-html,body{
-  margin:0;
-  background:#000;
-  color:#fff;
-  font-family:Segoe UI,Arial;
-  overflow-x:hidden;
+html, body {
+  margin: 0;
+  background: #000;
+  color: #fff;
+  font-family: Segoe UI, Arial;
+  overflow-x: hidden;
 }
 
-/* HARD SCROLLBAR KILL */
-*{
-  box-sizing:border-box;
-  scrollbar-width:none;
+/* HARD REMOVE SCROLLBAR */
+* {
+  box-sizing: border-box;
+  scrollbar-width: none;
 }
-*::-webkit-scrollbar{
-  width:0!important;
-  height:0!important;
-  display:none!important;
-}
-
-.rito_root{padding:18px}
-
-.rito_title{
-  font-size:18px;
-  margin:28px 0 14px;
-  letter-spacing:4px;
+*::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
 }
 
-.rito_slider{
-  display:flex;
-  gap:16px;
-  overflow-x:auto;
-  overscroll-behavior-x:none;
-  scroll-behavior:smooth;
+.rito_root { padding: 18px; }
+
+.rito_title {
+  font-size: 18px;
+  margin: 28px 0 14px;
+  letter-spacing: 4px;
 }
 
-.rito_card{
-  min-width:240px;
-  background:#111;
-  border-radius:14px;
-  overflow:hidden;
-  cursor:pointer;
-  transition:.25s;
-}
-.rito_card:hover{transform:scale(1.05)}
-
-.rito_thumb{
-  width:100%;
-  aspect-ratio:16/9;
-  object-fit:cover;
-  background:#000;
+.rito_slider {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
 }
 
-.rito_meta{
-  padding:10px;
-  font-size:13px;
+.rito_card {
+  min-width: 240px;
+  background: #111;
+  border-radius: 14px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform .25s;
+}
+.rito_card:hover { transform: scale(1.05); }
+
+.rito_thumb {
+  width: 100%;
+  aspect-ratio: 16/9;
+  object-fit: cover;
 }
 
-.rito_live{
-  position:absolute;
-  top:8px;left:8px;
-  background:#ff0000;
-  padding:4px 8px;
-  border-radius:6px;
-  font-size:11px;
+.rito_meta {
+  padding: 10px;
+  font-size: 13px;
 }
 
-.rito_box{
-  background:#0f0f0f;
-  padding:14px;
-  border-radius:14px;
-  line-height:1.6;
-  opacity:.9;
+.rito_live {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: red;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
 }
 
-/* LOADER */
-.rito_loader{
-  height:260px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  flex-direction:column;
+.rito_box {
+  background: #0f0f0f;
+  padding: 14px;
+  border-radius: 14px;
+  line-height: 1.6;
 }
-.spin{
-  width:42px;height:42px;
-  border:4px solid #333;
-  border-top:4px solid #fff;
-  border-radius:50%;
-  animation:spin 1s linear infinite;
+
+.rito_loader {
+  height: 260px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
 }
-@keyframes spin{to{transform:rotate(360deg)}}
+
+.spin {
+  width: 42px;
+  height: 42px;
+  border: 4px solid #333;
+  border-top: 4px solid #fff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 
@@ -108,13 +107,14 @@ html,body{
 </div>
 
 <script>
-const API_KEY="AIzaSyBn0yn2FxDc9JIUt8InDm5O2lAxUIIEm94";
-const CHANNEL="UCeq1rnutfneY2AUe3Fi7gTA";
-const API="https://www.googleapis.com/youtube/v3";
-const app=document.getElementById("app");
+const API_KEY = "AIzaSyBn0yn2FxDc9JIUt8InDm5O2lAxUIIEm94";
+const CHANNEL = "UCeq1rnutfneY2AUe3Fi7gTA";
+const API = "https://www.googleapis.com/youtube/v3";
+const app = document.getElementById("app");
 
-function fail(){
-  app.innerHTML=`
+/* FAIL SAFE */
+function failSafe() {
+  app.innerHTML = `
   <div class="rito_loader">
     <div style="font-size:38px">🎮</div>
     <div>UNDER CONSTRUCTION</div>
@@ -122,80 +122,121 @@ function fail(){
   </div>`;
 }
 
-async function getJSON(url){
-  try{
-    const r=await fetch(url);
-    if(!r.ok) throw 0;
+async function getJSON(url) {
+  try {
+    const r = await fetch(url);
+    if (!r.ok) throw 0;
     return await r.json();
-  }catch{fail(); throw 0;}
+  } catch {
+    failSafe();
+    throw 0;
+  }
 }
 
-function card(v,live=false){
+function card(v, live=false) {
   return `
-  <div class="rito_card" onclick="openVid('${v.id}')">
+  <div class="rito_card" onclick="window.open('https://youtube.com/watch?v=${v.id}','_blank')">
     <div style="position:relative">
       <img class="rito_thumb" src="${v.snippet.thumbnails.high.url}">
-      ${live?'<div class="rito_live">LIVE</div>':''}
+      ${live ? '<div class="rito_live">LIVE</div>' : ''}
     </div>
     <div class="rito_meta">${v.snippet.title}</div>
   </div>`;
 }
 
-function openVid(id){
-  window.open("https://youtube.com/watch?v="+id,"_blank");
+/* DAILY RECOMMENDED (24h FIXED) */
+function getDailyRecommended(videos) {
+  const VID="rito_rec_vid", TIME="rito_rec_time";
+  const DAY=86400000, now=Date.now();
+  const sVid=localStorage.getItem(VID);
+  const sTime=localStorage.getItem(TIME);
+
+  if (sVid && sTime && (now - sTime < DAY)) {
+    const found = videos.find(v => v.id === sVid);
+    if (found) return found;
+  }
+  const pick = videos[Math.floor(Math.random()*videos.length)];
+  localStorage.setItem(VID, pick.id);
+  localStorage.setItem(TIME, now);
+  return pick;
 }
 
-async function init(){
-  app.innerHTML="";
+/* MONTHLY SUMMARY (REAL) */
+function generateMonthlySummary(videos) {
+  const now = Date.now();
+  const MONTH = 30 * 24 * 60 * 60 * 1000;
 
-  const s=await getJSON(`${API}/search?part=id&channelId=${CHANNEL}&type=video&maxResults=15&key=${API_KEY}`);
-  const ids=s.items.map(x=>x.id.videoId).join(",");
+  let uploads = 0;
+  let lives = 0;
+  let views = 0;
 
-  const v=await getJSON(`${API}/videos?part=snippet,statistics,liveStreamingDetails&id=${ids}&key=${API_KEY}`);
+  videos.forEach(v => {
+    const published = new Date(v.snippet.publishedAt).getTime();
+    if (now - published < MONTH) {
+      uploads++;
+      views += Number(v.statistics.viewCount || 0);
+      if (v.liveStreamingDetails) lives++;
+    }
+  });
 
-  const live=v.items.filter(x=>x.liveStreamingDetails?.actualStartTime);
-  const mostViewed=[...v.items].sort((a,b)=>b.statistics.viewCount-a.statistics.viewCount);
+  const freq = uploads ? `~${Math.round(30/uploads)} days per upload` : "low activity";
 
-  // DAILY RECOMMEND
-  const dayKey=new Date().toDateString();
-  let rec=sessionStorage.getItem("rito_rec_"+dayKey);
-  if(!rec){
-    rec=v.items[Math.floor(Math.random()*v.items.length)].id;
-    sessionStorage.setItem("rito_rec_"+dayKey,rec);
-  }
-  const recommend=v.items.find(x=>x.id===rec);
+  return `
+    In the past month, the channel uploaded ${uploads} videos, 
+    hosted ${lives} live streams, and gained approximately 
+    ${views.toLocaleString()} views. Upload frequency remained ${freq}, 
+    with consistent gaming-focused content and audience engagement.
+  `;
+}
 
-  app.innerHTML+=`<div class="rito_title">LIVE</div>
-  <div class="rito_slider">
-    ${live.length?live.map(x=>card(x,true)).join(""):`<div class="rito_box">No live stream right now</div>`}
-  </div>`;
+/* INIT */
+async function init() {
+  app.innerHTML = "";
 
-  app.innerHTML+=`<div class="rito_title">MOST VIEWED</div>
-  <div class="rito_slider">
-    ${mostViewed.slice(0,6).map(card).join("")}
-  </div>`;
+  const search = await getJSON(`${API}/search?part=id&channelId=${CHANNEL}&type=video&maxResults=15&key=${API_KEY}`);
+  const ids = search.items.map(x => x.id.videoId).join(",");
 
-  app.innerHTML+=`<div class="rito_title">RECOMMENDED TODAY</div>
-  <div class="rito_slider">${recommend?card(recommend):""}</div>`;
+  const data = await getJSON(`${API}/videos?part=snippet,statistics,liveStreamingDetails&id=${ids}&key=${API_KEY}`);
+  const videos = data.items;
 
-  app.innerHTML+=`<div class="rito_title">VIDEOS</div>
-  <div class="rito_slider">${v.items.map(card).join("")}</div>`;
+  const live = videos.filter(v =>
+    v.liveStreamingDetails &&
+    v.liveStreamingDetails.actualStartTime &&
+    !v.liveStreamingDetails.actualEndTime
+  );
 
-  app.innerHTML+=`<div class="rito_title">COMMUNITY POST</div>
-  <div class="rito_box">
-    New uploads, shorts and live interactions are summarized automatically
-    due to platform restrictions.
-  </div>`;
+  const mostViewed = [...videos].sort((a,b)=>b.statistics.viewCount-a.statistics.viewCount);
+  const recommended = getDailyRecommended(videos);
+  const summary = generateMonthlySummary(videos);
 
-  app.innerHTML+=`<div class="rito_title">SUMMARY</div>
-  <div class="rito_box">
-    Consistent gaming uploads, short-form highlights and interactive
-    live streams focused on audience engagement.
-  </div>`;
+  app.innerHTML += `
+    <div class="rito_title">LIVE</div>
+    <div class="rito_slider">
+      ${live.length ? live.map(v=>card(v,true)).join("") : `<div class="rito_box">No live stream right now</div>`}
+    </div>
+
+    <div class="rito_title">MOST VIEWED</div>
+    <div class="rito_slider">
+      ${mostViewed.slice(0,6).map(card).join("")}
+    </div>
+
+    <div class="rito_title">RECOMMENDED TODAY</div>
+    <div class="rito_slider">
+      ${recommended ? card(recommended) : ""}
+    </div>
+
+    <div class="rito_title">VIDEOS</div>
+    <div class="rito_slider">
+      ${videos.map(card).join("")}
+    </div>
+
+    <div class="rito_title">SUMMARY</div>
+    <div class="rito_box">${summary}</div>
+  `;
 }
 
 init();
-setInterval(init,30000);
+setInterval(init, 30000);
 </script>
 </body>
 </html>
