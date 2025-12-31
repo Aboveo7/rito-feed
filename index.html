@@ -210,7 +210,7 @@ async function init() {
   const summary = generateMonthlySummary(videos);
 
   app.innerHTML += `
-    <div class="rito_title">LIVE</div>
+    <div class="rito_title">LIVE SIGNAL</div>
     <div class="rito_slider">
       ${live.length ? live.map(v=>card(v,true)).join("") : `<div class="rito_box">No live stream right now</div>`}
     </div>
@@ -225,12 +225,12 @@ async function init() {
       ${recommended ? card(recommended) : ""}
     </div>
 
-    <div class="rito_title">VIDEOS</div>
+    <div class="rito_title">VIDEO ARCHIVE</div>
     <div class="rito_slider">
       ${videos.map(card).join("")}
     </div>
 
-    <div class="rito_title">SUMMARY</div>
+    <div class="rito_title">MONTHLY SUMMARY</div>
     <div class="rito_box">${summary}</div>
   `;
 }
