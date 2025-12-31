@@ -2,241 +2,135 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>RITO GAMING FEED</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-
+<title>RITO GAMING HUB</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-html, body {
-  margin: 0;
-  background: #000;
-  color: #fff;
-  font-family: Segoe UI, Arial;
-  overflow-x: hidden;
-}
-
-/* HARD REMOVE SCROLLBAR */
-* {
-  box-sizing: border-box;
-  scrollbar-width: none;
-}
-*::-webkit-scrollbar {
-  width: 0 !important;
-  height: 0 !important;
-  display: none !important;
-}
-
-.rito_root { padding: 18px; }
-
-.rito_title {
-  font-size: 18px;
-  margin: 28px 0 14px;
-  letter-spacing: 4px;
-}
-
-.rito_slider {
-  display: flex;
-  gap: 16px;
-  overflow-x: auto;
-  scroll-behavior: smooth;
-}
-
-.rito_card {
-  min-width: 240px;
-  background: #111;
-  border-radius: 14px;
-  overflow: hidden;
-  cursor: pointer;
-  transition: transform .25s;
-}
-.rito_card:hover { transform: scale(1.05); }
-
-.rito_thumb {
-  width: 100%;
-  aspect-ratio: 16/9;
-  object-fit: cover;
-}
-
-.rito_meta {
-  padding: 10px;
-  font-size: 13px;
-}
-
-.rito_live {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  background: red;
-  padding: 4px 8px;
-  border-radius: 6px;
-  font-size: 11px;
-}
-
-.rito_box {
-  background: #0f0f0f;
-  padding: 14px;
-  border-radius: 14px;
-  line-height: 1.6;
-}
-
-.rito_loader {
-  height: 260px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-}
-
-.spin {
-  width: 42px;
-  height: 42px;
-  border: 4px solid #333;
-  border-top: 4px solid #fff;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
+html,body{margin:0;background:#000;color:#fff;font-family:Arial;overflow-x:hidden}
+*{scrollbar-width:none}*::-webkit-scrollbar{display:none}
+.wrap{padding:16px}
+h2{margin:28px 0 12px;font-size:16px;letter-spacing:3px}
+.slider{display:flex;gap:16px;overflow-x:auto;scroll-behavior:smooth}
+.card{min-width:240px;background:#111;border-radius:14px;overflow:hidden;cursor:pointer}
+.thumb{width:100%;aspect-ratio:16/9;object-fit:cover}
+.meta{padding:10px;font-size:13px}
+.live{position:absolute;top:8px;left:8px;background:red;padding:4px 8px;font-size:11px;border-radius:6px}
+.box{background:#111;padding:14px;border-radius:14px;line-height:1.6}
+.loader{height:260px;display:flex;align-items:center;justify-content:center;flex-direction:column}
+.spin{width:40px;height:40px;border:4px solid #333;border-top:4px solid #fff;border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 
 <body>
-<div class="rito_root" id="app">
-  <div class="rito_loader">
+<div class="wrap" id="app">
+  <div class="loader">
     <div class="spin"></div>
-    <div style="margin-top:12px">Initializing gaming feed…</div>
+    <div style="margin-top:10px">Loading gaming data…</div>
   </div>
 </div>
 
 <script>
-const API_KEY = "AIzaSyBn0yn2FxDc9JIUt8InDm5O2lAxUIIEm94";
-const CHANNEL = "UCeq1rnutfneY2AUe3Fi7gTA";
-const API = "https://www.googleapis.com/youtube/v3";
-const app = document.getElementById("app");
+const API_KEY="AIzaSyBn0yn2FxDc9JIUt8InDm5O2lAxUIIEm94";
+const CHANNEL="UCeq1rnutfneY2AUe3Fi7gTA";
+const API="https://www.googleapis.com/youtube/v3";
+const app=document.getElementById("app");
 
-/* FAIL SAFE */
-function failSafe() {
-  app.innerHTML = `
-  <div class="rito_loader">
-    <div style="font-size:38px">🎮</div>
-    <div>UNDER CONSTRUCTION</div>
-    <div style="opacity:.6">Systems offline</div>
-  </div>`;
+async function get(url){
+  const r=await fetch(url);
+  if(!r.ok) throw "API error";
+  return r.json();
 }
 
-async function getJSON(url) {
-  try {
-    const r = await fetch(url);
-    if (!r.ok) throw 0;
-    return await r.json();
-  } catch {
-    failSafe();
-    throw 0;
-  }
-}
-
-function card(v, live=false) {
+function card(v,live=false){
   return `
-  <div class="rito_card" onclick="window.open('https://youtube.com/watch?v=${v.id}','_blank')">
+  <div class="card" onclick="window.open('https://youtube.com/watch?v=${v.id}','_blank')">
     <div style="position:relative">
-      <img class="rito_thumb" src="${v.snippet.thumbnails.high.url}">
-      ${live ? '<div class="rito_live">LIVE</div>' : ''}
+      <img class="thumb" src="${v.snippet.thumbnails.high.url}">
+      ${live?'<div class="live">LIVE</div>':''}
     </div>
-    <div class="rito_meta">${v.snippet.title}</div>
+    <div class="meta">${v.snippet.title}</div>
   </div>`;
 }
 
-/* DAILY RECOMMENDED (24h FIXED) */
-function getDailyRecommended(videos) {
-  const VID="rito_rec_vid", TIME="rito_rec_time";
-  const DAY=86400000, now=Date.now();
-  const sVid=localStorage.getItem(VID);
-  const sTime=localStorage.getItem(TIME);
-
-  if (sVid && sTime && (now - sTime < DAY)) {
-    const found = videos.find(v => v.id === sVid);
-    if (found) return found;
+/* DAILY RECOMMENDED */
+function dailyPick(list){
+  const k="rito_rec",t="rito_time",day=86400000,now=Date.now();
+  const s=localStorage.getItem(k),st=localStorage.getItem(t);
+  if(s&&st&&now-st<day){
+    const f=list.find(x=>x.id===s);
+    if(f) return f;
   }
-  const pick = videos[Math.floor(Math.random()*videos.length)];
-  localStorage.setItem(VID, pick.id);
-  localStorage.setItem(TIME, now);
-  return pick;
+  const p=list[Math.floor(Math.random()*list.length)];
+  localStorage.setItem(k,p.id);
+  localStorage.setItem(t,now);
+  return p;
 }
 
-/* MONTHLY SUMMARY (REAL) */
-function generateMonthlySummary(videos) {
-  const now = Date.now();
-  const MONTH = 30 * 24 * 60 * 60 * 1000;
-
-  let uploads = 0;
-  let lives = 0;
-  let views = 0;
-
-  videos.forEach(v => {
-    const published = new Date(v.snippet.publishedAt).getTime();
-    if (now - published < MONTH) {
-      uploads++;
-      views += Number(v.statistics.viewCount || 0);
-      if (v.liveStreamingDetails) lives++;
+/* SUMMARY */
+function summary(videos,lives){
+  const m=30*86400000,now=Date.now();
+  let up=0,views=0;
+  videos.forEach(v=>{
+    if(now-new Date(v.snippet.publishedAt)<m){
+      up++;
+      views+=Number(v.statistics.viewCount||0);
     }
   });
-
-  const freq = uploads ? `~${Math.round(30/uploads)} days per upload` : "low activity";
-
-  return `
-    In the past month, the channel uploaded ${uploads} videos, 
-    hosted ${lives} live streams, and gained approximately 
-    ${views.toLocaleString()} views. Upload frequency remained ${freq}, 
-    with consistent gaming-focused content and audience engagement.
-  `;
+  return `Over the past month, the channel maintained consistent gaming activity with ${up} uploads and ${lives} live sessions, generating roughly ${views.toLocaleString()} views. Engagement remained stable, reflecting steady audience retention and regular content output.`;
 }
 
-/* INIT */
-async function init() {
-  app.innerHTML = "";
+async function init(){
+  try{
+    app.innerHTML="";
 
-  const search = await getJSON(`${API}/search?part=id&channelId=${CHANNEL}&type=video&maxResults=15&key=${API_KEY}`);
-  const ids = search.items.map(x => x.id.videoId).join(",");
+    /* LIVE */
+    const liveS=await get(`${API}/search?part=snippet&channelId=${CHANNEL}&eventType=live&type=video&key=${API_KEY}`);
+    const liveIds=liveS.items.map(x=>x.id.videoId);
+    let liveV=[];
+    if(liveIds.length){
+      const d=await get(`${API}/videos?part=snippet,statistics,liveStreamingDetails&id=${liveIds}&key=${API_KEY}`);
+      liveV=d.items.filter(v=>v.liveStreamingDetails && !v.liveStreamingDetails.actualEndTime);
+    }
 
-  const data = await getJSON(`${API}/videos?part=snippet,statistics,liveStreamingDetails&id=${ids}&key=${API_KEY}`);
-  const videos = data.items;
+    /* PREVIOUS LIVE */
+    if(!liveV.length){
+      const prev=await get(`${API}/search?part=snippet&channelId=${CHANNEL}&eventType=completed&type=video&maxResults=6&key=${API_KEY}`);
+      const ids=prev.items.map(x=>x.id.videoId).join(",");
+      const d=await get(`${API}/videos?part=snippet,statistics&id=${ids}&key=${API_KEY}`);
+      liveV=d.items;
+    }
 
-  const live = videos.filter(v =>
-    v.liveStreamingDetails &&
-    v.liveStreamingDetails.actualStartTime &&
-    !v.liveStreamingDetails.actualEndTime
-  );
+    /* VIDEOS (NO SHORTS) */
+    const vidS=await get(`${API}/search?part=snippet&channelId=${CHANNEL}&type=video&videoDuration=medium&maxResults=15&key=${API_KEY}`);
+    const vidIds=vidS.items.map(x=>x.id.videoId).join(",");
+    const vids=(await get(`${API}/videos?part=snippet,statistics&id=${vidIds}&key=${API_KEY}`)).items;
 
-  const mostViewed = [...videos].sort((a,b)=>b.statistics.viewCount-a.statistics.viewCount);
-  const recommended = getDailyRecommended(videos);
-  const summary = generateMonthlySummary(videos);
+    /* SHORTS */
+    const shS=await get(`${API}/search?part=snippet&channelId=${CHANNEL}&type=video&videoDuration=short&maxResults=10&key=${API_KEY}`);
+    const shIds=shS.items.map(x=>x.id.videoId).join(",");
+    const shorts=(await get(`${API}/videos?part=snippet,statistics&id=${shIds}&key=${API_KEY}`)).items;
 
-  app.innerHTML += `
-    <div class="rito_title">LIVE SIGNAL</div>
-    <div class="rito_slider">
-      ${live.length ? live.map(v=>card(v,true)).join("") : `<div class="rito_box">No live stream right now</div>`}
-    </div>
+    /* MOST VIEWED */
+    const most=[...vids].sort((a,b)=>b.statistics.viewCount-a.statistics.viewCount)[0];
 
-    <div class="rito_title">MOST VIEWED</div>
-    <div class="rito_slider">
-      ${mostViewed.slice(0,6).map(card).join("")}
-    </div>
+    /* RECOMMENDED */
+    const recommended=dailyPick([...vids,...shorts,...liveV]);
 
-    <div class="rito_title">RECOMMENDED TODAY</div>
-    <div class="rito_slider">
-      ${recommended ? card(recommended) : ""}
-    </div>
-
-    <div class="rito_title">VIDEO ARCHIVE</div>
-    <div class="rito_slider">
-      ${videos.map(card).join("")}
-    </div>
-
-    <div class="rito_title">MONTHLY SUMMARY</div>
-    <div class="rito_box">${summary}</div>
-  `;
+    app.innerHTML+=`
+      <h2>LIVE</h2><div class="slider">${liveV.map(v=>card(v,true)).join("")}</div>
+      <h2>VIDEOS</h2><div class="slider">${vids.map(card).join("")}</div>
+      <h2>RECOMMENDED TODAY</h2><div class="slider">${recommended?card(recommended):""}</div>
+      <h2>MOST VIEWED</h2><div class="slider">${most?card(most):""}</div>
+      <h2>SHORTS</h2><div class="slider">${shorts.map(card).join("")}</div>
+      <h2>SUMMARY</h2><div class="box">${summary(vids,liveV.length)}</div>
+    `;
+  }catch(e){
+    app.innerHTML=`<div class="loader"><div class="spin"></div><div>API limit or network issue</div></div>`;
+  }
 }
 
 init();
-setInterval(init, 30000);
+setInterval(init,30000);
 </script>
 </body>
 </html>
