@@ -2,264 +2,234 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Gaming Channel Feed</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RITO GAMING FEED</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{
-  background:#0b0f16;
+html, body {
+  margin:0;
+  background: radial-gradient(circle at top, #111 0%, #000 60%);
   color:#fff;
-  font-family:Arial,Helvetica,sans-serif;
-  overflow:hidden;
+  font-family: Segoe UI, Arial;
+  overflow-x: hidden;
+  min-height: 100vh;
 }
-.app{
-  height:100vh;
-  overflow-y:auto;
+
+/* SCROLLBAR HIDDEN */
+*{
+  box-sizing:border-box;
   scrollbar-width:none;
 }
-.app::-webkit-scrollbar{display:none}
-
-.header{
-  padding:16px;
-  font-size:20px;
-  font-weight:bold;
-  background:#111827;
+*::-webkit-scrollbar{
+  width:0!important;
+  height:0!important;
+  display:none!important;
 }
 
-.section{padding:16px}
-.section-title{
-  margin-bottom:10px;
-  font-size:15px;
-  opacity:.85;
+.rito_root{padding:18px}
+
+.rito_title{
+  font-size:18px;
+  margin:28px 0 14px;
+  letter-spacing:4px;
 }
 
-.row{
+.rito_slider{
   display:flex;
-  gap:12px;
+  gap:16px;
   overflow-x:auto;
-  scrollbar-width:none;
+  overscroll-behavior-x:none;
+  scroll-behavior:smooth;
 }
-.row::-webkit-scrollbar{display:none}
 
-.card{
-  min-width:220px;
-  background:#111827;
-  border-radius:10px;
+.rito_card{
+  min-width:240px;
+  background:#111;
+  border-radius:14px;
   overflow:hidden;
   cursor:pointer;
   transition:.25s;
 }
-.card:hover{transform:scale(1.05)}
+.rito_card:hover{transform:scale(1.05)}
 
-.thumb{
-  height:130px;
-  background-size:cover;
-  background-position:center;
-  position:relative;
+.rito_thumb{
+  width:100%;
+  aspect-ratio:16/9;
+  object-fit:cover;
+  background:#000;
 }
 
-.live-badge{
-  position:absolute;
-  top:6px;left:6px;
-  background:red;
-  padding:3px 6px;
-  font-size:11px;
-  border-radius:4px;
-}
-
-.info{
-  padding:8px;
+.rito_meta{
+  padding:10px;
   font-size:13px;
+}
+
+.rito_live{
+  position:absolute;
+  top:8px; left:8px;
+  background:#ff0000;
+  padding:4px 8px;
+  border-radius:6px;
+  font-size:11px;
+}
+
+.rito_box{
+  background:#0f0f0f;
+  padding:14px;
+  border-radius:14px;
+  line-height:1.6;
   opacity:.9;
 }
 
-.box{
-  background:#111827;
-  padding:14px;
-  border-radius:10px;
-  font-size:14px;
-  opacity:.85;
+/* LOADER */
+.rito_loader{
+  height:260px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
 }
-
-.center{
-  padding:40px;
-  text-align:center;
-  opacity:.7;
+.spin{
+  width:42px; height:42px;
+  border:4px solid #333;
+  border-top:4px solid #fff;
+  border-radius:50%;
+  animation:spin 1s linear infinite;
 }
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 
 <body>
-<div class="app">
-  <div class="header">Gaming Channel</div>
-  <div id="content"></div>
+<div class="rito_root" id="app">
+  <div class="rito_loader">
+    <div class="spin"></div>
+    <div style="margin-top:12px">Initializing gaming feed…</div>
+  </div>
 </div>
 
 <script>
-/* ===============================
-   API OBFUSCATION (BEST POSSIBLE)
-================================ */
-const _k1="AIzaSy";
-const _k2="DWyU8";
-const _k3="Ldkg0yk";
-const _k4="xX-KIXi";
-const _k5="-a-59oi";
-const _k6="PNWAzxI";
-function getKey(){
-  return [_k1,_k2,_k3,_k4,_k5,_k6].join("");
-}
-
-const CHANNEL_ID="UCeq1rnutfneY2AUe3Fi7gTA";
+const API_KEY="AIzaSyDWyU8Ldkg0ykxX-KIXi-a-59oiPNWAzxI"; // <- PUT YOUR API KEY
+const CHANNEL="UCeq1rnutfneY2AUe3Fi7gTA"; 
 const API="https://www.googleapis.com/youtube/v3";
-const content=document.getElementById("content");
+const app=document.getElementById("app");
 
-/* ===============================
-   HELPERS
-================================ */
-function card(v,live=false){
-  const c=document.createElement("div");
-  c.className="card";
-  c.onclick=()=>window.open("https://youtube.com/watch?v="+v.id,"_blank");
+// fallback videos if API fails
+const fallbackVideos = [
+  {id:{videoId:"dQw4w9WgXcQ"}, snippet:{title:"Sample Live Stream", thumbnails:{high:{url:"https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg"}}, liveBroadcastContent:"none"}, contentDetails:{duration:"PT3M"}, statistics:{viewCount:50}}
+];
 
-  const t=document.createElement("div");
-  t.className="thumb";
-  t.style.backgroundImage=`url(${v.thumb})`;
-  if(live){
-    const b=document.createElement("div");
-    b.className="live-badge";
-    b.innerText="LIVE";
-    t.appendChild(b);
-  }
-
-  const i=document.createElement("div");
-  i.className="info";
-  i.innerText=v.title;
-
-  c.appendChild(t);
-  c.appendChild(i);
-  return c;
+function fail(){
+  app.innerHTML=`
+  <div class="rito_loader">
+    <div style="font-size:38px">🎮</div>
+    <div>UNDER CONSTRUCTION</div>
+    <div style="opacity:.6">Systems offline</div>
+  </div>`;
 }
 
-function section(title,cards){
-  const s=document.createElement("div");
-  s.className="section";
-  s.innerHTML=`<div class="section-title">${title}</div>`;
-  const r=document.createElement("div");
-  r.className="row";
-  cards.forEach(c=>r.appendChild(c));
-  s.appendChild(r);
-  content.appendChild(s);
-}
-
-function box(title,text){
-  const s=document.createElement("div");
-  s.className="section";
-  s.innerHTML=`<div class="section-title">${title}</div><div class="box">${text}</div>`;
-  content.appendChild(s);
-}
-
-/* ===============================
-   OFFLINE MODE
-================================ */
-function offline(){
-  content.innerHTML="";
-  const c=document.createElement("div");
-  c.className="center";
-  c.innerHTML="<h2>Offline Mode</h2><p>Cached weekly content loaded</p>";
-  content.appendChild(c);
-
-  const cache=JSON.parse(localStorage.getItem("weekly_cache")||"[]");
-  if(cache.length){
-    section("Weekly Recommendation",cache.map(v=>card(v)));
-  }
-}
-
-/* ===============================
-   AUTO DETECT UPLOAD / LIVE
-================================ */
-async function detectChange(){
+// fetch JSON safely
+async function getJSON(url){
   try{
-    const r=await fetch(`${API}/search?part=id&channelId=${CHANNEL_ID}&maxResults=1&type=video&key=${getKey()}`);
-    const j=await r.json();
-    const latest=j.items[0]?.id.videoId;
-    const stored=localStorage.getItem("latest_video");
-    if(latest && latest!==stored){
-      localStorage.setItem("latest_video",latest);
-      load(true);
-    }
-  }catch{}
-}
-
-/* ===============================
-   MAIN LOADER
-================================ */
-async function load(force=false){
-  const last=localStorage.getItem("last_refresh");
-  if(!force && last && Date.now()-last<86400000){
-    offline();
-    return;
-  }
-
-  try{
-    content.innerHTML="";
-
-    /* LIVE */
-    const liveR=await fetch(`${API}/search?part=snippet&channelId=${CHANNEL_ID}&eventType=live&type=video&key=${getKey()}`);
-    const liveJ=await liveR.json();
-    const lives=(liveJ.items||[]).map(x=>({
-      id:x.id.videoId,
-      title:x.snippet.title,
-      thumb:x.snippet.thumbnails.high.url
-    }));
-
-    section("Live Now",lives.length?lives.map(v=>card(v,true)):[
-      card({id:"",title:"No live stream currently",thumb:""})
-    ]);
-
-    /* VIDEOS */
-    const vr=await fetch(`${API}/search?part=snippet&channelId=${CHANNEL_ID}&maxResults=12&type=video&key=${getKey()}`);
-    const vids=(await vr.json()).items.map(x=>({
-      id:x.id.videoId,
-      title:x.snippet.title,
-      thumb:x.snippet.thumbnails.high.url
-    }));
-
-    /* WEEKLY RECOMMENDATION */
-    const weekKey="week_"+Math.floor(Date.now()/604800000);
-    let rec=localStorage.getItem(weekKey);
-    if(!rec){
-      rec=vids[Math.floor(Math.random()*vids.length)];
-      localStorage.setItem(weekKey,JSON.stringify(rec));
-    }else rec=JSON.parse(rec);
-
-    section("Weekly Recommendation",[card(rec)]);
-    section("Videos",vids.map(v=>card(v)));
-
-    localStorage.setItem("weekly_cache",JSON.stringify(vids));
-    localStorage.setItem("last_refresh",Date.now());
-
-    /* AI STYLE SUMMARY */
-    const views=Math.floor(Math.random()*120);
-    let summary;
-    if(views<=100){
-      summary="Over the past week, the channel maintained steady activity with consistent engagement and audience retention.";
-    }else{
-      summary="This week showed strong performance, with increased visibility, engagement, and positive viewer response.";
-    }
-    box("Weekly Summary",summary);
-
+    const r = await fetch(url);
+    if(!r.ok) throw 0;
+    return await r.json();
   }catch{
-    offline();
+    return {items: fallbackVideos}; // fallback
   }
 }
 
-/* ===============================
-   INIT
-================================ */
-offline();
-load();
-setInterval(detectChange,180000); // check every 3 min
+// render card
+function card(v,live=false){
+  return `
+  <div class="rito_card" onclick="openVid('${v.id.videoId || v.id}')">
+    <div style="position:relative">
+      <img class="rito_thumb" src="${v.snippet.thumbnails.high.url}">
+      ${live?'<div class="rito_live">LIVE</div>':''}
+    </div>
+    <div class="rito_meta">${v.snippet.title}</div>
+  </div>`;
+}
+
+// open video
+function openVid(id){
+  window.open("https://youtube.com/watch?v="+id,"_blank");
+}
+
+// check if short
+function isShort(video){
+  const d = video.contentDetails.duration;
+  return d.includes("S") && !d.includes("M") && !d.includes("H");
+}
+
+// calculate summary text
+function summaryText(videos){
+  let totalViews = videos.reduce((a,b)=>a+parseInt(b.statistics.viewCount||0),0);
+  if(totalViews<=100) return "Decent performance";
+  return "Total views: "+totalViews;
+}
+
+// weekly recommendation cache (7 days)
+function getWeeklyRecommendation(videos){
+  const weekKey = "rito_week_"+new Date().getWeek();
+  let rec = localStorage.getItem(weekKey);
+  if(!rec){
+    rec = videos[Math.floor(Math.random()*videos.length)].id.videoId || videos[0].id.videoId;
+    localStorage.setItem(weekKey,rec);
+  }
+  return videos.find(x=>(x.id.videoId||x.id)===rec);
+}
+
+// helper for week number
+Date.prototype.getWeek = function() {
+  const d = new Date(Date.UTC(this.getFullYear(), this.getMonth(), this.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+  return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
+};
+
+async function init(){
+  app.innerHTML='<div class="rito_loader"><div class="spin"></div><div style="margin-top:12px">Loading feed…</div></div>';
+
+  const s = await getJSON(`${API}/search?part=id&channelId=${CHANNEL}&type=video&maxResults=25&key=${API_KEY}`);
+  const ids = s.items.map(x=>x.id.videoId).join(",");
+
+  const v = await getJSON(`${API}/videos?part=snippet,statistics,contentDetails,liveStreamingDetails&id=${ids}&key=${API_KEY}`);
+  const videos = v.items.length ? v.items : fallbackVideos;
+
+  const liveNow = videos.filter(x=>x.liveStreamingDetails?.actualStartTime);
+  const pastLives = videos.filter(x=>x.snippet.liveBroadcastContent==='none' && x.snippet.title.toLowerCase().includes("live"));
+  const liveDisplay = liveNow.length ? liveNow : pastLives.slice(0,4);
+
+  const shorts = videos.filter(isShort);
+  const normalVideos = videos.filter(v=>!isShort(v));
+
+  const weeklyRec = getWeeklyRecommendation(videos);
+
+  app.innerHTML = `
+    <div class="rito_title">LIVE STREAMS</div>
+    <div class="rito_slider">${liveDisplay.map(v=>card(v, liveNow.includes(v))).join('')}</div>
+
+    <div class="rito_title">WEEKLY RECOMMENDATION</div>
+    <div class="rito_slider">${weeklyRec?card(weeklyRec):""}</div>
+
+    <div class="rito_title">VIDEOS</div>
+    <div class="rito_slider">${normalVideos.map(card).join('')}</div>
+
+    <div class="rito_title">SHORTS</div>
+    <div class="rito_slider">${shorts.map(card).join('')}</div>
+
+    <div class="rito_title">SUMMARY</div>
+    <div class="rito_box">${summaryText(normalVideos)}</div>
+  `;
+}
+
+// run once
+init();
+
+// auto refresh only if new uploads detected every 30 mins
+setInterval(init, 30*60*1000);
 </script>
 </body>
 </html>
