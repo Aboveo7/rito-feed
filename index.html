@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Gaming Feed</title>
+<title>Creator Feed</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
@@ -12,12 +12,24 @@ html,body{
   color:#fff;
   font-family:Segoe UI,Arial;
   overflow-x:hidden;
+  min-height:100vh;
 }
-*{box-sizing:border-box;scrollbar-width:none}
-*::-webkit-scrollbar{display:none}
+
+/* hide scrollbar but keep scroll */
+*{
+  box-sizing:border-box;
+  scrollbar-width:none;
+}
+*::-webkit-scrollbar{
+  width:0;height:0;
+}
 
 .root{padding:18px}
-.title{font-size:18px;margin:28px 0 14px;letter-spacing:3px}
+.title{
+  font-size:18px;
+  margin:26px 0 14px;
+  letter-spacing:3px;
+}
 
 .slider{
   display:flex;
@@ -53,139 +65,182 @@ html,body{
   padding:14px;
   border-radius:14px;
   line-height:1.6;
+  opacity:.9;
 }
+
+.loader{
+  height:260px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+}
+.spin{
+  width:40px;height:40px;
+  border:4px solid #333;
+  border-top:4px solid #fff;
+  border-radius:50%;
+  animation:spin 1s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 
 <body>
-<div class="root" id="app"></div>
+<div class="root" id="app">
+  <div class="loader">
+    <div class="spin"></div>
+    <div style="margin-top:12px">Loading creator feed…</div>
+  </div>
+</div>
 
 <script>
-/* ================= API PROTECTION ================= */
-const k1="AIzaSy";
-const k2="DWyU8Ldkg0yk";
-const k3="xX-KIXi-a-59oiPNWAzxI";
-const API_KEY = k1+k2+k3;
+/* ========= CONFIG ========= */
 
-/* ================= CONFIG ================= */
-const CHANNEL_ID="UCeq1rnutfneY2AUe3Fi7gTA";
-const API="https://www.googleapis.com/youtube/v3";
-const RSS=`https://www.youtube.com/feeds/videos.xml?channel_id=${CHANNEL_ID}`;
-const app=document.getElementById("app");
+// 👇 PASTE YOUR API KEY HERE
+const KEY_RAW = "AIzaSyDWyU8Ldkg0ykxX-KIXi-a-59oiPNWAzxI";
 
-/* ================= HELPERS ================= */
-const openVid=id=>window.open("https://youtube.com/watch?v="+id,"_blank");
-const isLong=v=>v.contentDetails.duration.match(/PT(\d+)M/) && parseInt(RegExp.$1)>=2;
-const isShort=v=>v.contentDetails.duration==="PT0S";
-const cache=k=>JSON.parse(localStorage.getItem(k)||"null");
-const save=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
+/* channel */
+const CHANNEL_ID = "UCeq1rnutfneY2AUe3Fi7gTA";
 
-function card(v,live=false){
+/* obfuscation */
+const API_KEY = KEY_RAW.split("").reverse().join("");
+
+const API = "https://www.googleapis.com/youtube/v3";
+const app = document.getElementById("app");
+
+/* ========= UTIL ========= */
+
+function openVid(id){
+  window.open("https://youtube.com/watch?v="+id,"_blank");
+}
+
+function card(v,isLive=false){
   return `
   <div class="card" onclick="openVid('${v.id}')">
     <div style="position:relative">
-      <img class="thumb" src="${v.snippet.thumbnails.high.url}">
-      ${live?'<div class="live">LIVE</div>':''}
+      <img class="thumb" src="${v.thumb}">
+      ${isLive?'<div class="live">LIVE</div>':''}
     </div>
-    <div class="meta">${v.snippet.title}</div>
+    <div class="meta">${v.title}</div>
   </div>`;
 }
 
-/* ================= RSS CHANGE DETECTION ================= */
-async function rssChanged(){
-  try{
-    const r=await fetch(RSS);
-    const t=await r.text();
-    const id=t.match(/<yt:videoId>(.*?)<\/yt:videoId>/)[1];
-    const last=localStorage.getItem("last_vid");
-    if(last!==id){
-      localStorage.setItem("last_vid",id);
-      return true;
-    }
-  }catch{}
-  return false;
+function minutes(duration){
+  const m = duration.match(/PT(\d+)M/);
+  return m ? parseInt(m[1]) : 0;
 }
 
-/* ================= SUMMARY AI ================= */
-function summary(videos){
-  const map={};
-  videos.forEach(v=>{
-    const words=v.snippet.title.toLowerCase().split(" ");
-    words.forEach(w=>{
-      if(w.length>4){
-        map[w]=(map[w]||0)+parseInt(v.statistics.viewCount||0);
-      }
-    });
-  });
-  const best=Object.entries(map).sort((a,b)=>b[1]-a[1])[0];
-  return best
-    ? `Content mainly performs best around "${best[0]}" based gameplay. The creator focuses on consistent themes with strong audience interest and recognizable style.`
-    : `The channel shows consistent experimentation with gaming content and evolving formats.`;
+/* ========= CACHE ========= */
+
+const CACHE_KEY = "creator_cache_v1";
+const WEEK_KEY = "weekly_pick";
+
+/* ========= DATA ========= */
+
+async function fetchJSON(url){
+  const r = await fetch(url);
+  if(!r.ok) throw 0;
+  return r.json();
 }
 
-/* ================= MAIN LOAD ================= */
-async function load(force=false){
-  const last=cache("page_data");
-  const lastTime=localStorage.getItem("last_time");
-  const changed=await rssChanged();
+/* ========= MAIN ========= */
 
-  if(!force && last && !changed && Date.now()-lastTime<86400000){
-    render(last);
+async function init(force=false){
+  let cache = JSON.parse(localStorage.getItem(CACHE_KEY) || "{}");
+  const now = Date.now();
+
+  if(!force && cache.time && now - cache.time < 86400000){
+    render(cache.data);
     return;
   }
 
   try{
-    const s=await fetch(`${API}/search?part=id&channelId=${CHANNEL_ID}&type=video&maxResults=25&key=${API_KEY}`).then(r=>r.json());
-    const ids=s.items.map(x=>x.id.videoId).join(",");
-    const v=await fetch(`${API}/videos?part=snippet,statistics,contentDetails,liveStreamingDetails&id=${ids}&key=${API_KEY}`).then(r=>r.json());
+    const search = await fetchJSON(
+      `${API}/search?part=id&channelId=${CHANNEL_ID}&type=video&maxResults=25&key=${API_KEY}`
+    );
 
-    save("page_data",v.items);
-    localStorage.setItem("last_time",Date.now());
-    render(v.items);
+    const ids = search.items.map(x=>x.id.videoId).join(",");
+
+    const data = await fetchJSON(
+      `${API}/videos?part=snippet,statistics,contentDetails,liveStreamingDetails&id=${ids}&key=${API_KEY}`
+    );
+
+    const all = data.items.map(v=>({
+      id:v.id,
+      title:v.snippet.title,
+      thumb:v.snippet.thumbnails.high.url,
+      views:+v.statistics.viewCount,
+      duration:v.contentDetails.duration,
+      live:!!v.liveStreamingDetails?.actualStartTime
+    }));
+
+    localStorage.setItem(CACHE_KEY, JSON.stringify({
+      time:now,
+      data:all
+    }));
+
+    render(all);
   }catch{
-    if(last) render(last);
+    if(cache.data) render(cache.data);
   }
 }
 
-/* ================= RENDER ================= */
-function render(items){
-  const lives=items.filter(v=>v.liveStreamingDetails && !isShort(v));
-  const videos=items.filter(v=>isLong(v) && !v.liveStreamingDetails);
-  const most=[...videos].sort((a,b)=>b.statistics.viewCount-a.statistics.viewCount)[0];
-  const rest=videos.filter(v=>v!==most).sort(()=>0.5-Math.random());
+/* ========= RENDER ========= */
+
+function render(all){
+  const videos = all.filter(v=>!v.live && minutes(v.duration)>=2);
+  const lives = all.filter(v=>v.live);
+
+  const mostViewed = videos.sort((a,b)=>b.views-a.views)[0];
+  const restVideos = videos.filter(v=>v!==mostViewed).sort(()=>0.5-Math.random());
 
   /* weekly recommendation */
-  const wk="week_"+new Date().getWeek();
-  let rec=cache(wk);
-  if(!rec){
-    rec=videos[Math.floor(Math.random()*videos.length)];
-    save(wk,rec);
+  let weekly = localStorage.getItem(WEEK_KEY);
+  if(!weekly){
+    weekly = restVideos[0]?.id;
+    localStorage.setItem(WEEK_KEY, weekly);
   }
+  const weeklyVid = videos.find(v=>v.id===weekly);
 
-  app.innerHTML=`
-  <div class="title">LIVE STREAMS</div>
-  <div class="slider">${lives.length?lives.map(v=>card(v,true)).join(""):""}</div>
+  /* summary */
+  const topicMap = {};
+  videos.forEach(v=>{
+    const key = v.title.split(" ")[0].toLowerCase();
+    topicMap[key] = (topicMap[key]||0) + v.views;
+  });
+  const best = Object.entries(topicMap).sort((a,b)=>b[1]-a[1])[0]?.[0] || "variety";
 
-  <div class="title">WEEKLY RECOMMENDATION</div>
-  <div class="slider">${rec?card(rec):""}</div>
+  app.innerHTML = `
+    <div class="title">LIVE STREAMS</div>
+    <div class="slider">
+      ${(lives.length?lives:videos.slice(0,3)).map(v=>card(v, v.live)).join("")}
+    </div>
 
-  <div class="title">VIDEOS</div>
-  <div class="slider">${[most,...rest].map(v=>card(v)).join("")}</div>
+    <div class="title">WEEKLY RECOMMENDATION</div>
+    <div class="slider">
+      ${weeklyVid?card(weeklyVid):""}
+    </div>
 
-  <div class="title">SUMMARY</div>
-  <div class="box">${summary(videos)}</div>`;
+    <div class="title">VIDEOS</div>
+    <div class="slider">
+      ${[mostViewed,...restVideos.slice(0,6)].map(v=>card(v)).join("")}
+    </div>
+
+    <div class="title">SUMMARY</div>
+    <div class="box">
+      This channel performs best around <b>${best}</b> based content.
+      The creator focuses on engaging gameplay and consistent uploads,
+      showing a clear style that resonates with viewers.
+    </div>
+  `;
 }
 
-Date.prototype.getWeek=function(){
-  const d=new Date(Date.UTC(this.getFullYear(),this.getMonth(),this.getDate()));
-  d.setUTCDate(d.getUTCDate()+4-(d.getUTCDay()||7));
-  const y=new Date(Date.UTC(d.getUTCFullYear(),0,1));
-  return Math.ceil((((d-y)/86400000)+1)/7);
-};
+/* init */
+init();
 
-/* ================= START ================= */
-load();
-setInterval(()=>load(false),3600000);
+/* refresh only once in 24h */
+setInterval(()=>init(false),86400000);
 </script>
 </body>
 </html>
