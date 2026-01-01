@@ -8,10 +8,10 @@
 <style>
 html,body{
   margin:0;
-  background:radial-gradient(circle at top,#111 0%,#000 60%);
+  background:radial-gradient(circle at top,#111 0%,#000 65%);
   color:#fff;
   font-family:Segoe UI,Arial;
-  overflow:hidden;
+  overflow-x:hidden;
 }
 *{box-sizing:border-box;scrollbar-width:none}
 *::-webkit-scrollbar{display:none}
@@ -53,7 +53,6 @@ html,body{
   padding:14px;
   border-radius:14px;
   line-height:1.6;
-  opacity:.9;
 }
 </style>
 </head>
@@ -63,141 +62,130 @@ html,body{
 
 <script>
 /* ================= API PROTECTION ================= */
-const _a="AIza";
-const _b="SyD";
-const _c="WyU8";
-const _d="Ldkg0ykxX-KIXi";
-const _e="-a-59oiPNWAzxI";
-const API_KEY=_a+_b+_c+_d+_e; // <-- see explanation below
+const k1="AIzaSy";
+const k2="DWyU8Ldkg0yk";
+const k3="xX-KIXi-a-59oiPNWAzxI";
+const API_KEY = k1+k2+k3;
 
-const CHANNEL="UCeq1rnutfneY2AUe3Fi7gTA";
+/* ================= CONFIG ================= */
+const CHANNEL_ID="UCeq1rnutfneY2AUe3Fi7gTA";
 const API="https://www.googleapis.com/youtube/v3";
+const RSS=`https://www.youtube.com/feeds/videos.xml?channel_id=${CHANNEL_ID}`;
 const app=document.getElementById("app");
 
-/* ================= UTIL ================= */
-const isShort=v=>{
-  const d=v.contentDetails?.duration||"";
-  return d.includes("S")&&!d.includes("M")&&!d.includes("H");
-};
+/* ================= HELPERS ================= */
 const openVid=id=>window.open("https://youtube.com/watch?v="+id,"_blank");
+const isLong=v=>v.contentDetails.duration.match(/PT(\d+)M/) && parseInt(RegExp.$1)>=2;
+const isShort=v=>v.contentDetails.duration==="PT0S";
+const cache=k=>JSON.parse(localStorage.getItem(k)||"null");
+const save=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
 
 function card(v,live=false){
   return `
   <div class="card" onclick="openVid('${v.id}')">
     <div style="position:relative">
-      <img class="thumb" src="${v.thumb}">
+      <img class="thumb" src="${v.snippet.thumbnails.high.url}">
       ${live?'<div class="live">LIVE</div>':''}
     </div>
-    <div class="meta">${v.title}</div>
+    <div class="meta">${v.snippet.title}</div>
   </div>`;
 }
 
-/* ================= CACHE ================= */
-const cacheGet=k=>JSON.parse(localStorage.getItem(k)||"null");
-const cacheSet=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
-
-/* ================= FETCH WITH FAILSAFE ================= */
-async function safeFetch(url,key){
+/* ================= RSS CHANGE DETECTION ================= */
+async function rssChanged(){
   try{
-    const r=await fetch(url);
-    if(!r.ok) throw 0;
-    const j=await r.json();
-    cacheSet(key,j);
-    return j;
-  }catch{
-    return cacheGet(key)||{items:[]};
-  }
+    const r=await fetch(RSS);
+    const t=await r.text();
+    const id=t.match(/<yt:videoId>(.*?)<\/yt:videoId>/)[1];
+    const last=localStorage.getItem("last_vid");
+    if(last!==id){
+      localStorage.setItem("last_vid",id);
+      return true;
+    }
+  }catch{}
+  return false;
 }
-
-/* ================= WEEKLY PICK ================= */
-function weeklyPick(videos){
-  const wk="week_"+new Date().getWeek();
-  let saved=cacheGet(wk);
-  if(saved) return videos.find(v=>v.id===saved);
-  const pick=videos[Math.floor(Math.random()*videos.length)];
-  if(pick) cacheSet(wk,pick.id);
-  return pick;
-}
-Date.prototype.getWeek=function(){
-  const d=new Date(Date.UTC(this.getFullYear(),this.getMonth(),this.getDate()));
-  const day=d.getUTCDay()||7;
-  d.setUTCDate(d.getUTCDate()+4-day);
-  const yearStart=new Date(Date.UTC(d.getUTCFullYear(),0,1));
-  return Math.ceil((((d-yearStart)/86400000)+1)/7);
-};
 
 /* ================= SUMMARY AI ================= */
 function summary(videos){
   const map={};
   videos.forEach(v=>{
-    const t=v.title.toLowerCase();
-    const k=t.split(" ")[0];
-    map[k]=(map[k]||0)+v.views;
+    const words=v.snippet.title.toLowerCase().split(" ");
+    words.forEach(w=>{
+      if(w.length>4){
+        map[w]=(map[w]||0)+parseInt(v.statistics.viewCount||0);
+      }
+    });
   });
   const best=Object.entries(map).sort((a,b)=>b[1]-a[1])[0];
-  if(!best) return "Content is performing steadily with decent engagement.";
-  if(best[1]<100) return `Focus on "${best[0]}" content is showing decent traction.`;
-  return `"${best[0]}" based content is currently the strongest performer on the channel.`;
+  return best
+    ? `Content mainly performs best around "${best[0]}" based gameplay. The creator focuses on consistent themes with strong audience interest and recognizable style.`
+    : `The channel shows consistent experimentation with gaming content and evolving formats.`;
 }
 
-/* ================= MAIN ================= */
-async function init(){
-  const last=cacheGet("lastCheck")||0;
-  if(Date.now()-last<86400000 && cacheGet("rendered")){
-    app.innerHTML=cacheGet("rendered");
+/* ================= MAIN LOAD ================= */
+async function load(force=false){
+  const last=cache("page_data");
+  const lastTime=localStorage.getItem("last_time");
+  const changed=await rssChanged();
+
+  if(!force && last && !changed && Date.now()-lastTime<86400000){
+    render(last);
     return;
   }
 
-  const search=await safeFetch(
-    `${API}/search?part=id&channelId=${CHANNEL}&type=video&maxResults=25&key=${API_KEY}`,
-    "search"
-  );
-  const ids=search.items.map(x=>x.id.videoId).join(",");
-  if(!ids) return;
+  try{
+    const s=await fetch(`${API}/search?part=id&channelId=${CHANNEL_ID}&type=video&maxResults=25&key=${API_KEY}`).then(r=>r.json());
+    const ids=s.items.map(x=>x.id.videoId).join(",");
+    const v=await fetch(`${API}/videos?part=snippet,statistics,contentDetails,liveStreamingDetails&id=${ids}&key=${API_KEY}`).then(r=>r.json());
 
-  const data=await safeFetch(
-    `${API}/videos?part=snippet,statistics,contentDetails,liveStreamingDetails&id=${ids}&key=${API_KEY}`,
-    "videos"
-  );
-
-  const vids=data.items.map(v=>({
-    id:v.id,
-    title:v.snippet.title,
-    thumb:v.snippet.thumbnails.high.url,
-    views:+v.statistics.viewCount||0,
-    live:!!v.liveStreamingDetails?.actualStartTime,
-    isShort:isShort(v)
-  }));
-
-  const normal=vids.filter(v=>!v.isShort&&!v.live);
-  const mostViewed=[...normal].sort((a,b)=>b.views-a.views)[0];
-  const randomRest=normal.filter(v=>v.id!==mostViewed?.id).sort(()=>0.5-Math.random());
-
-  const lives=vids.filter(v=>v.live);
-  const pastLives=vids.filter(v=>!v.live&&v.title.toLowerCase().includes("live"));
-
-  const weekly=weeklyPick(normal);
-
-  const html=`
-  <div class="title">LIVE STREAMS</div>
-  <div class="slider">${(lives.length?lives:pastLives).map(v=>card(v,true)).join("")}</div>
-
-  <div class="title">WEEKLY RECOMMENDATION</div>
-  <div class="slider">${weekly?card(weekly):""}</div>
-
-  <div class="title">VIDEOS</div>
-  <div class="slider">${mostViewed?card(mostViewed):""}${randomRest.map(card).join("")}</div>
-
-  <div class="title">SUMMARY</div>
-  <div class="box">${summary(normal)}</div>
-  `;
-
-  app.innerHTML=html;
-  cacheSet("rendered",html);
-  cacheSet("lastCheck",Date.now());
+    save("page_data",v.items);
+    localStorage.setItem("last_time",Date.now());
+    render(v.items);
+  }catch{
+    if(last) render(last);
+  }
 }
 
-init();
+/* ================= RENDER ================= */
+function render(items){
+  const lives=items.filter(v=>v.liveStreamingDetails && !isShort(v));
+  const videos=items.filter(v=>isLong(v) && !v.liveStreamingDetails);
+  const most=[...videos].sort((a,b)=>b.statistics.viewCount-a.statistics.viewCount)[0];
+  const rest=videos.filter(v=>v!==most).sort(()=>0.5-Math.random());
+
+  /* weekly recommendation */
+  const wk="week_"+new Date().getWeek();
+  let rec=cache(wk);
+  if(!rec){
+    rec=videos[Math.floor(Math.random()*videos.length)];
+    save(wk,rec);
+  }
+
+  app.innerHTML=`
+  <div class="title">LIVE STREAMS</div>
+  <div class="slider">${lives.length?lives.map(v=>card(v,true)).join(""):""}</div>
+
+  <div class="title">WEEKLY RECOMMENDATION</div>
+  <div class="slider">${rec?card(rec):""}</div>
+
+  <div class="title">VIDEOS</div>
+  <div class="slider">${[most,...rest].map(v=>card(v)).join("")}</div>
+
+  <div class="title">SUMMARY</div>
+  <div class="box">${summary(videos)}</div>`;
+}
+
+Date.prototype.getWeek=function(){
+  const d=new Date(Date.UTC(this.getFullYear(),this.getMonth(),this.getDate()));
+  d.setUTCDate(d.getUTCDate()+4-(d.getUTCDay()||7));
+  const y=new Date(Date.UTC(d.getUTCFullYear(),0,1));
+  return Math.ceil((((d-y)/86400000)+1)/7);
+};
+
+/* ================= START ================= */
+load();
+setInterval(()=>load(false),3600000);
 </script>
 </body>
 </html>
