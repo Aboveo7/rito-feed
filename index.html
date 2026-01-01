@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>YouTube Gaming Feed</title>
+<title>Rito Gaming Feed</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
@@ -11,36 +11,24 @@ html,body{
   background:#000;
   color:#fff;
   font-family:Segoe UI,Arial;
-  overflow-x:hidden;
+  overflow:hidden;
 }
+*{box-sizing:border-box;scrollbar-width:none}
+*::-webkit-scrollbar{display:none}
 
-/* SCROLLBAR HIDE */
-*{
-  box-sizing:border-box;
-  scrollbar-width:none;
-}
-*::-webkit-scrollbar{
-  width:0;
-  height:0;
-  display:none;
-}
-
-.app-container{padding:18px}
-
-.section-title{
-  font-size:18px;
+.container{padding:18px}
+.title{
   margin:28px 0 14px;
-  letter-spacing:2px;
+  font-size:16px;
+  letter-spacing:3px;
 }
-
-.horizontal-list{
+.slider{
   display:flex;
   gap:16px;
   overflow-x:auto;
   scroll-behavior:smooth;
 }
-
-.video-card{
+.card{
   min-width:240px;
   background:#111;
   border-radius:14px;
@@ -48,39 +36,27 @@ html,body{
   cursor:pointer;
   transition:.25s;
 }
-.video-card:hover{transform:scale(1.05)}
-
-.thumbnail{
+.card:hover{transform:scale(1.05)}
+.thumb{
   width:100%;
   aspect-ratio:16/9;
   object-fit:cover;
-  background:#000;
 }
-
-.video-title{
-  padding:10px;
-  font-size:13px;
-}
-
-.live-badge{
+.meta{padding:10px;font-size:13px}
+.live{
   position:absolute;
-  top:8px;
-  left:8px;
-  background:#ff0000;
+  top:8px;left:8px;
+  background:red;
   padding:4px 8px;
   border-radius:6px;
   font-size:11px;
 }
-
-.info-box{
+.box{
   background:#0f0f0f;
   padding:14px;
   border-radius:14px;
-  line-height:1.6;
-  opacity:.95;
+  opacity:.9;
 }
-
-/* LOADER */
 .loader{
   height:260px;
   display:flex;
@@ -88,7 +64,7 @@ html,body{
   justify-content:center;
   flex-direction:column;
 }
-.spinner{
+.spin{
   width:42px;height:42px;
   border:4px solid #333;
   border-top:4px solid #fff;
@@ -100,147 +76,167 @@ html,body{
 </head>
 
 <body>
-<div class="app-container" id="app">
+<div class="container" id="app">
   <div class="loader">
-    <div class="spinner"></div>
-    <div style="margin-top:12px">Loading channel data…</div>
+    <div class="spin"></div>
+    <div style="margin-top:12px">Loading feed…</div>
   </div>
 </div>
 
 <script>
-const API_KEY="AIzaSyDWyU8Ldkg0ykxX-KIXi-a-59oiPNWAzxI";
-const CHANNEL_ID="UCeq1rnutfneY2AUe3Fi7gTA";
-const API="https://www.googleapis.com/youtube/v3";
-const app=document.getElementById("app");
+/* ================= CONFIG ================= */
+const API_KEY = "AIzaSyDWyU8Ldkg0ykxX-KIXi-a-59oiPNWAzxI";
+const CHANNEL_ID = "UCeq1rnutfneY2AUe3Fi7gTA";
+const API = "https://www.googleapis.com/youtube/v3";
+const DAY = 24*60*60*1000;
 
-function showError(){
-  app.innerHTML=`
-  <div class="loader">
-    <div style="font-size:38px">🎮</div>
-    <div>UNDER CONSTRUCTION</div>
-    <div style="opacity:.6">API unavailable</div>
-  </div>`;
-}
+/* Offline fallback videos */
+const FALLBACK = [
+  {id:"dQw4w9WgXcQ",title:"Offline Backup Video",thumb:"https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",views:0,live:false,published:0}
+];
 
-async function fetchData(url){
-  const res=await fetch(url);
-  if(!res.ok) throw 0;
-  return res.json();
-}
+const app = document.getElementById("app");
 
+/* ================= HELPERS ================= */
 function openVideo(id){
   window.open("https://youtube.com/watch?v="+id,"_blank");
 }
-
-function videoCard(video,isLive=false){
+function card(v,live=false){
   return `
-  <div class="video-card" onclick="openVideo('${video.id}')">
+  <div class="card" onclick="openVideo('${v.id}')">
     <div style="position:relative">
-      <img class="thumbnail" src="${video.snippet.thumbnails.high.url}">
-      ${isLive?'<div class="live-badge">LIVE</div>':''}
+      <img class="thumb" src="${v.thumb}">
+      ${live?'<div class="live">LIVE</div>':''}
     </div>
-    <div class="video-title">${video.snippet.title}</div>
+    <div class="meta">${v.title}</div>
   </div>`;
 }
-
-/* RECOMMENDED – 24 HOURS FIXED */
-function getDailyRecommendation(items){
-  const KEY="daily_recommend_id";
-  const TIME="daily_recommend_time";
-  const DAY=86400000;
-  const now=Date.now();
-
-  const savedId=localStorage.getItem(KEY);
-  const savedTime=localStorage.getItem(TIME);
-
-  if(savedId && savedTime && (now - savedTime < DAY)){
-    const found=items.find(v=>v.id===savedId);
-    if(found) return found;
-  }
-
-  const pick=items[Math.floor(Math.random()*items.length)];
-  localStorage.setItem(KEY,pick.id);
-  localStorage.setItem(TIME,now);
-  return pick;
-}
-
-/* MONTHLY SUMMARY */
-function buildMonthlySummary(videos,lives){
-  const now=Date.now();
-  const MONTH=30*24*60*60*1000;
-
-  let uploads=0;
-  let views=0;
-
-  videos.forEach(v=>{
-    const published=new Date(v.snippet.publishedAt).getTime();
-    if(now-published<MONTH){
-      uploads++;
-      views+=Number(v.statistics.viewCount||0);
-    }
-  });
-
-  const frequency=uploads
-    ? `roughly ${Math.round(30/uploads)} days per upload`
-    : "low upload frequency";
-
-  return `During the last 30 days, the channel published ${uploads} videos and hosted ${lives} live streams, generating approximately ${views.toLocaleString()} views. Content output remained consistent with a ${frequency}, maintaining steady engagement within the gaming audience.`;
-}
-
-async function init(){
+async function safeFetch(url){
   try{
-    app.innerHTML="";
+    const r=await fetch(url);
+    if(!r.ok) throw 0;
+    return await r.json();
+  }catch{return null;}
+}
 
-    const search=await fetchData(
-      `${API}/search?part=id&channelId=${CHANNEL_ID}&type=video&maxResults=15&key=${API_KEY}`
-    );
+/* ================= LIGHT CHECK ================= */
+async function lightCheck(){
+  const r = await safeFetch(
+    `${API}/channels?part=snippet,statistics&id=${CHANNEL_ID}&key=${API_KEY}`
+  );
+  if(!r) return false;
 
-    const ids=search.items.map(i=>i.id.videoId).join(",");
+  const count = r.items[0].statistics.videoCount;
+  const pub = r.items[0].snippet.publishedAt;
 
-    const videosData=await fetchData(
-      `${API}/videos?part=snippet,statistics,liveStreamingDetails&id=${ids}&key=${API_KEY}`
-    );
+  const oldCount = localStorage.getItem("yt_count");
+  const oldPub = localStorage.getItem("yt_pub");
 
-    const items=videosData.items;
+  localStorage.setItem("yt_count",count);
+  localStorage.setItem("yt_pub",pub);
 
-    const liveVideos=items.filter(v=>v.liveStreamingDetails?.actualStartTime);
-    const mostViewed=[...items].sort((a,b)=>b.statistics.viewCount-a.statistics.viewCount);
-    const recommended=getDailyRecommendation(items);
-    const summary=buildMonthlySummary(items,liveVideos.length);
+  return count!==oldCount || pub!==oldPub;
+}
 
-    app.innerHTML+=`
-      <div class="section-title">Live</div>
-      <div class="horizontal-list">
-        ${liveVideos.length
-          ? liveVideos.map(v=>videoCard(v,true)).join("")
-          : `<div class="info-box">No live stream right now</div>`}
-      </div>
+/* ================= FULL FETCH ================= */
+async function fullFetch(){
+  const s = await safeFetch(
+    `${API}/search?part=id&channelId=${CHANNEL_ID}&type=video&maxResults=20&key=${API_KEY}`
+  );
+  if(!s) return null;
 
-      <div class="section-title">Most Viewed</div>
-      <div class="horizontal-list">
-        ${mostViewed.slice(0,6).map(videoCard).join("")}
-      </div>
+  const ids = s.items.map(x=>x.id.videoId).join(",");
+  const v = await safeFetch(
+    `${API}/videos?part=snippet,statistics,liveStreamingDetails&id=${ids}&key=${API_KEY}`
+  );
+  if(!v) return null;
 
-      <div class="section-title">Recommended Today</div>
-      <div class="horizontal-list">
-        ${recommended?videoCard(recommended):""}
-      </div>
+  const data = v.items.map(x=>({
+    id:x.id,
+    title:x.snippet.title,
+    thumb:x.snippet.thumbnails.high.url,
+    views:Number(x.statistics.viewCount||0),
+    live:!!x.liveStreamingDetails?.actualStartTime,
+    published:new Date(x.snippet.publishedAt).getTime()
+  }));
 
-      <div class="section-title">Videos</div>
-      <div class="horizontal-list">
-        ${items.map(videoCard).join("")}
-      </div>
+  localStorage.setItem("yt_cache",JSON.stringify(data));
+  localStorage.setItem("yt_full",Date.now());
+  return data;
+}
 
-      <div class="section-title">Monthly Summary</div>
-      <div class="info-box">${summary}</div>
-    `;
-  }catch{
-    showError();
+/* ================= RENDER ================= */
+function render(videos,offline=false){
+  const now=Date.now();
+  const live = videos.filter(v=>v.live);
+  const mostViewed=[...videos].sort((a,b)=>b.views-a.views).slice(0,6);
+  const shorts = videos.filter(v=>v.title.toLowerCase().includes("#short"));
+  const normal = videos.filter(v=>!v.title.toLowerCase().includes("#short"));
+
+  /* Weekly recommendation */
+  const weekKey="rec_"+Math.floor(now/(7*DAY));
+  let rec=localStorage.getItem(weekKey);
+  if(!rec){
+    rec=videos[Math.floor(Math.random()*videos.length)].id;
+    localStorage.setItem(weekKey,rec);
+  }
+  const recommend=videos.find(v=>v.id===rec);
+
+  /* Weekly summary */
+  const last7=videos.filter(v=>now-v.published<=7*DAY);
+  const views=last7.reduce((a,b)=>a+b.views,0);
+  let summary="Low activity this week.";
+  if(views<=100) summary="Content showed decent performance this week.";
+  else if(views<=1000) summary="Channel performed well with steady engagement.";
+  else summary="Strong weekly performance driven by consistent uploads.";
+
+  app.innerHTML=`
+  ${offline?'<div class="box">Offline mode – showing cached videos</div>':''}
+
+  <div class="title">LIVE</div>
+  <div class="slider">${live.length?live.map(v=>card(v,true)).join(""):'<div class="box">No live stream</div>'}</div>
+
+  <div class="title">MOST VIEWED</div>
+  <div class="slider">${mostViewed.map(card).join("")}</div>
+
+  <div class="title">RECOMMENDED THIS WEEK</div>
+  <div class="slider">${recommend?card(recommend):''}</div>
+
+  <div class="title">VIDEOS</div>
+  <div class="slider">${normal.map(card).join("")}</div>
+
+  <div class="title">SHORTS</div>
+  <div class="slider">${shorts.map(card).join("")}</div>
+
+  <div class="title">WEEKLY SUMMARY</div>
+  <div class="box">${summary}</div>
+  `;
+}
+
+/* ================= SMART INIT ================= */
+async function smartInit(){
+  const lastFull=Number(localStorage.getItem("yt_full")||0);
+  const now=Date.now();
+
+  if(now-lastFull<DAY){
+    const changed=await lightCheck();
+    if(!changed){
+      const cached=JSON.parse(localStorage.getItem("yt_cache")||"[]");
+      render(cached.length?cached:FALLBACK,true);
+      return;
+    }
+  }
+
+  const data=await fullFetch();
+  if(data) render(data);
+  else{
+    const cached=JSON.parse(localStorage.getItem("yt_cache")||"[]");
+    render(cached.length?cached:FALLBACK,true);
   }
 }
 
-init();
-setInterval(init,30000);
+smartInit();
+setInterval(smartInit,6*60*60*1000); // check every 6 hours
 </script>
 </body>
 </html>
